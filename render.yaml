@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: profundamente-adenocarcinoma
+    runtime: python
+    region: oregon
+
+    # ── Build ────────────────────────────────────────────────────────────────
+    # 1. Instala dependencias Python
+    # 2. Instala dependencias Node y compila el frontend con Vite
+    # 3. Copia el build al directorio que FastAPI sirve como archivos estáticos
+    buildCommand: |
+      pip install -r backend/requirements.txt &&
+      cd frontend &&
+      npm install &&
+      npm run build &&
+      cd .. &&
+      mkdir -p backend/frontend_dist &&
+      cp -r frontend/dist/. backend/frontend_dist/
+
+    # ── Start ─────────────────────────────────────────────────────────────────
+    # Arranca uvicorn desde el directorio backend.
+    # $PORT es asignado automáticamente por Render.
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+    # ── Variables de entorno ──────────────────────────────────────────────────
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      # CORS_ORIGINS no se define aquí porque en producción el frontend
+      # se sirve desde el mismo origen que el API (no hay cross-origin).
+      # Solo se necesita en dev local (localhost:5173), que ya está como default.
+
+    # ── Health check ──────────────────────────────────────────────────────────
+    healthCheckPath: /api/health
