@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { AppPhase, AnswerMap, DiagnosisResult, ImageKind } from '@/types'
+import { ALL_QUESTION_IDS, SECTIONS } from '@/data/questionnaire'
+import { getCompletedSectionIds } from '@/lib/sectionStatus'
 import Header from '@/components/layout/Header'
 import AcademicBanner from '@/components/layout/AcademicBanner'
 import ProgressBar from '@/components/layout/ProgressBar'
@@ -17,9 +19,21 @@ export default function App() {
   const [imageFileName, setImageFileName] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [answers, setAnswers] = useState<AnswerMap>({})
-  const [completedSections, setCompletedSections] = useState<string[]>([])
+  const [visibleSectionId, setVisibleSectionId] = useState<string | null>(null)
   const [result, setResult] = useState<DiagnosisResult | null>(null)
   const [showAbout, setShowAbout] = useState(false)
+
+  // Derived, not stored: a section is "completed" exactly when every one of
+  // its questions has a valid answer — never inferred from navigation order.
+  const completedSectionIds = useMemo(
+    () => getCompletedSectionIds(SECTIONS, answers),
+    [answers],
+  )
+  const answeredQuestionsCount = Object.keys(answers).length
+
+  // The progress bar must never show a domain active outside the
+  // questionnaire phase (loading, or once a result exists).
+  const currentSectionId = phase === 'questionnaire' ? visibleSectionId : null
 
   function handleImageLoaded(
     url: string,
@@ -40,18 +54,9 @@ export default function App() {
     setAnswers(prev => ({ ...prev, [questionId]: letter }))
   }
 
-  function handleSectionComplete(sectionId: string) {
-    setCompletedSections(prev =>
-      prev.includes(sectionId) ? prev : [...prev, sectionId],
-    )
-  }
-
   function handleDiagnosis(diagResult: DiagnosisResult) {
     setResult(diagResult)
     setPhase('result')
-    setCompletedSections(prev =>
-      prev.includes('integracion') ? prev : [...prev, 'integracion'],
-    )
   }
 
   function handleNewCase() {
@@ -62,7 +67,7 @@ export default function App() {
     setImageFileName(null)
     setSessionId(null)
     setAnswers({})
-    setCompletedSections([])
+    setVisibleSectionId(null)
     setResult(null)
   }
 
@@ -70,7 +75,7 @@ export default function App() {
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-background">
       <Header onNewCase={handleNewCase} onAbout={() => setShowAbout(true)} />
 
-      <main className="flex-1 pt-16 pb-24 flex overflow-hidden">
+      <main className="flex-1 pt-16 pb-28 flex overflow-hidden">
         {/* Left: Image area */}
         <section className="flex-1 flex items-center justify-center overflow-hidden">
           {phase === 'upload' ? (
@@ -87,14 +92,20 @@ export default function App() {
             answers={answers}
             sessionId={sessionId}
             onAnswer={handleAnswer}
-            onSectionComplete={handleSectionComplete}
+            onCurrentSectionChange={setVisibleSectionId}
             onDiagnosis={handleDiagnosis}
           />
         </aside>
       </main>
 
       <AcademicBanner />
-      <ProgressBar completedSections={completedSections} currentPhase={phase} />
+      <ProgressBar
+        currentPhase={phase}
+        currentSectionId={currentSectionId}
+        completedSectionIds={completedSectionIds}
+        answeredQuestionsCount={answeredQuestionsCount}
+        totalQuestions={ALL_QUESTION_IDS.length}
+      />
 
       {result && (
         <ResultModal

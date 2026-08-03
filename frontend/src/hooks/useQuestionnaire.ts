@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { SECTIONS, getSectionForQuestion } from '@/data/questionnaire'
+import { SECTIONS } from '@/data/questionnaire'
 import type { AnswerMap } from '@/types'
 
 interface UseQuestionnaireReturn {
@@ -12,7 +12,6 @@ interface UseQuestionnaireReturn {
   canGoNext: boolean
   canGoPrev: boolean
   isLastQuestion: boolean
-  completedSectionIds: string[]
   goNext: () => void
   goPrev: () => void
   jumpToQuestion: (sectionIdx: number, questionIdx: number) => void
@@ -41,12 +40,6 @@ export function useQuestionnaire(answers: AnswerMap): UseQuestionnaireReturn {
   const isLastQuestion =
     currentSectionIndex === SECTIONS.length - 1 &&
     currentQuestionIndex === currentSection.questions.length - 1
-
-  const completedSectionIds = useMemo(() => {
-    return SECTIONS.filter(section =>
-      section.questions.every(q => answers[q.id] !== undefined),
-    ).map(s => s.id)
-  }, [answers])
 
   const goNext = useCallback(() => {
     if (!canGoNext) return
@@ -79,9 +72,6 @@ export function useQuestionnaire(answers: AnswerMap): UseQuestionnaireReturn {
     setCurrentQuestionIndex(questionIdx)
   }, [])
 
-  // Keep track of which section a given question belongs to (for completedSections)
-  void getSectionForQuestion // referenced to avoid unused import warning
-
   return {
     currentSectionIndex,
     currentQuestionIndex,
@@ -92,7 +82,6 @@ export function useQuestionnaire(answers: AnswerMap): UseQuestionnaireReturn {
     canGoNext,
     canGoPrev,
     isLastQuestion,
-    completedSectionIds,
     goNext,
     goPrev,
     jumpToQuestion,

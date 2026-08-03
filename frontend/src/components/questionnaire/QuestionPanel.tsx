@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Brain } from 'lucide-react'
 import type { AppPhase, AnswerMap, DiagnosisResult } from '@/types'
 import { useQuestionnaire } from '@/hooks/useQuestionnaire'
 import SectionHeader from './SectionHeader'
@@ -10,7 +11,7 @@ interface QuestionPanelProps {
   answers: AnswerMap
   sessionId: string | null
   onAnswer: (questionId: string, letter: string) => void
-  onSectionComplete: (sectionId: string) => void
+  onCurrentSectionChange: (sectionId: string) => void
   onDiagnosis: (result: DiagnosisResult) => void
 }
 
@@ -19,7 +20,7 @@ export default function QuestionPanel({
   answers,
   sessionId,
   onAnswer,
-  onSectionComplete,
+  onCurrentSectionChange,
   onDiagnosis,
 }: QuestionPanelProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -35,10 +36,24 @@ export default function QuestionPanel({
     canGoNext,
     canGoPrev,
     isLastQuestion,
-    completedSectionIds,
     goNext,
     goPrev,
+    jumpToQuestion,
   } = useQuestionnaire(answers)
+
+  // Report which section is currently visible so the global progress bar
+  // (a sibling component) can render exactly one active domain.
+  useEffect(() => {
+    onCurrentSectionChange(currentSection.id)
+  }, [currentSection.id, onCurrentSectionChange])
+
+  // Starting a new case must resume at question 1, not wherever the previous
+  // case left off — otherwise answers reset but the cursor doesn't.
+  useEffect(() => {
+    if (phase === 'upload') {
+      jumpToQuestion(0, 0)
+    }
+  }, [phase, jumpToQuestion])
 
   // Idle state before image is loaded
   if (phase === 'upload') {
@@ -47,10 +62,7 @@ export default function QuestionPanel({
         {/* Panel header */}
         <div className="p-6 border-b border-outline-variant/10 flex items-center gap-3">
           <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary text-lg"
-              style={{ fontVariationSettings: "'FILL' 1" }}>
-              neurology
-            </span>
+            <Brain aria-hidden="true" size={18} strokeWidth={1.8} fill="currentColor" fillOpacity={0.15} className="text-primary" />
           </div>
           <div>
             <h3 className="font-bold text-sm font-headline">Asistente de Patología</h3>
@@ -93,12 +105,6 @@ export default function QuestionPanel({
 
   function handleAnswer(letter: string) {
     onAnswer(currentQuestion.id, letter)
-    // Notify section completion if this was the last question in section
-    const isLastInSection =
-      currentQuestionIndex === currentSection.questions.length - 1
-    if (isLastInSection && !completedSectionIds.includes(currentSection.id)) {
-      onSectionComplete(currentSection.id)
-    }
   }
 
   function handleNext() {
@@ -159,6 +165,7 @@ export default function QuestionPanel({
             type="button"
             onClick={handleNext}
             disabled={!canGoNext || isSubmitting}
+            data-testid="next-question"
             className={[
               'flex-[2] py-3 rounded-lg font-black text-sm transition-all font-headline',
               canGoNext && !isSubmitting
