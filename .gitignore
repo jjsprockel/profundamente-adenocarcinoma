@@ -16,6 +16,12 @@ frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
 
+# Build de producción (generado por Render en build time, no se versiona)
+backend/frontend_dist/
+
+# TypeScript build info
+frontend/tsconfig.tsbuildinfo
+
 # OS
 .DS_Store
 Thumbs.db
