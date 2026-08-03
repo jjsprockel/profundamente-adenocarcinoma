@@ -81,7 +81,15 @@ export default function App() {
           {phase === 'upload' ? (
             <ImageDropZone onImageLoaded={handleImageLoaded} />
           ) : (
-            imageUrl && <ImageViewer kind={imageKind} imageUrl={imageUrl} dziUrl={dziUrl} />
+            imageUrl && (
+              <ImageViewer
+                kind={imageKind}
+                imageUrl={imageUrl}
+                dziUrl={dziUrl}
+                fileName={imageFileName ?? undefined}
+                onReplaceImage={handleNewCase}
+              />
+            )
           )}
         </section>
 

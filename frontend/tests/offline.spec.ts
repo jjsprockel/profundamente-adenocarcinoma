@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { samplePngFile } from './fixtures'
+import { sampleHistologyImageFile, blockExternalRequests } from './fixtures'
 
 /**
  * Verifica que la aplicación funciona por completo sin acceso a internet.
@@ -13,31 +13,22 @@ import { samplePngFile } from './fixtures'
  * app nunca intentó salir a internet.
  */
 
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1'])
-
 test('flujo completo funciona sin acceso a internet', async ({ page }) => {
-  const blockedRequests: string[] = []
-
-  await page.route('**/*', route => {
-    const url = new URL(route.request().url())
-    if (LOCAL_HOSTS.has(url.hostname)) {
-      route.continue()
-      return
-    }
-    blockedRequests.push(`${route.request().method()} ${url.toString()}`)
-    route.abort('internetdisconnected')
-  })
+  const blockedRequests = await blockExternalRequests(page)
 
   await page.goto('/')
   await page.reload()
 
   // ── 1. Cargar una imagen ──────────────────────────────────────────────
   const fileInput = page.locator('input[type="file"]')
-  await fileInput.setInputFiles(samplePngFile())
+  await fileInput.setInputFiles(sampleHistologyImageFile())
 
   await expect(page.getByTestId('next-question')).toBeVisible({ timeout: 15_000 })
 
   // ── 2. Controles de zoom del visor ────────────────────────────────────
+  // Los controles quedan deshabilitados hasta que OpenSeadragon termina de
+  // abrir la imagen (evento 'open'), no solo tras la respuesta de subida.
+  await expect(page.getByTestId('zoom-in')).toBeEnabled({ timeout: 15_000 })
   await page.getByTestId('zoom-in').click()
   await page.getByTestId('zoom-out').click()
   await page.getByTestId('reset-view').click()
