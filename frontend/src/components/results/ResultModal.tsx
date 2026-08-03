@@ -1,6 +1,7 @@
 import type { DiagnosisResult, ConfidenceLevel } from '@/types'
 import { exportPdf } from '@/api/client'
 import { useState } from 'react'
+import { AlertTriangle, Download } from 'lucide-react'
 
 interface ResultModalProps {
   result: DiagnosisResult
@@ -109,7 +110,7 @@ export default function ResultModal({ result, imageFileName, onClose, onNewCase 
               <ul className="space-y-1">
                 {result.contradictions.map((c, i) => (
                   <li key={i} className="text-xs font-mono text-error flex items-start gap-2">
-                    <span className="material-symbols-outlined text-sm flex-shrink-0">warning</span>
+                    <AlertTriangle aria-hidden="true" size={14} strokeWidth={2} className="flex-shrink-0 mt-0.5" />
                     {c}
                   </li>
                 ))}
@@ -142,15 +143,17 @@ export default function ResultModal({ result, imageFileName, onClose, onNewCase 
             type="button"
             onClick={handleExport}
             disabled={exporting}
+            data-testid="export-pdf"
             className="flex items-center gap-2 px-5 py-2.5 bg-surface-container-highest hover:bg-surface-bright text-on-surface text-sm font-bold rounded-lg transition-all font-headline disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-lg">download</span>
+            <Download aria-hidden="true" size={18} strokeWidth={1.8} />
             {exporting ? 'Exportando...' : 'Exportar PDF'}
           </button>
 
           <button
             type="button"
             onClick={onNewCase}
+            data-testid="new-case"
             className="flex-1 py-2.5 bg-primary text-on-primary font-black text-sm rounded-lg shadow-amber hover:shadow-amber-lg active:scale-95 transition-all font-headline"
           >
             Nuevo caso

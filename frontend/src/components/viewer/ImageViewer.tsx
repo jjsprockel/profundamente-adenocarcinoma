@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import OpenSeadragon from 'openseadragon'
+import { ZoomIn, ZoomOut, RotateCcw, type LucideIcon } from 'lucide-react'
 import type { ImageKind } from '@/types'
 
 interface ImageViewerProps {
@@ -45,12 +46,23 @@ export default function ImageViewer({ kind, imageUrl, dziUrl }: ImageViewerProps
 
       {/* Controls overlay */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-surface-container-high/80 backdrop-blur-sm rounded-xl px-3 py-2">
-        <ControlButton icon="zoom_in" label="Acercar" onClick={() => viewerRef.current?.viewport.zoomBy(1.4)} />
-        <ControlButton icon="zoom_out" label="Alejar" onClick={() => viewerRef.current?.viewport.zoomBy(0.7)} />
+        <ControlButton
+          icon={ZoomIn}
+          label="Acercar"
+          testId="zoom-in"
+          onClick={() => viewerRef.current?.viewport.zoomBy(1.4)}
+        />
+        <ControlButton
+          icon={ZoomOut}
+          label="Alejar"
+          testId="zoom-out"
+          onClick={() => viewerRef.current?.viewport.zoomBy(0.7)}
+        />
         <div className="w-px h-6 bg-outline-variant/20 mx-1" />
         <ControlButton
-          icon="restart_alt"
+          icon={RotateCcw}
           label="Restablecer"
+          testId="reset-view"
           onClick={() => viewerRef.current?.viewport.goHome()}
         />
       </div>
@@ -59,20 +71,23 @@ export default function ImageViewer({ kind, imageUrl, dziUrl }: ImageViewerProps
 }
 
 interface ControlButtonProps {
-  icon: string
+  icon: LucideIcon
   label: string
+  testId: string
   onClick: () => void
 }
 
-function ControlButton({ icon, label, onClick }: ControlButtonProps) {
+function ControlButton({ icon: Icon, label, testId, onClick }: ControlButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={label}
+      aria-label={label}
+      data-testid={testId}
       className="flex flex-col items-center gap-0.5 text-on-surface/50 hover:text-primary transition-colors px-2 py-1 rounded"
     >
-      <span className="material-symbols-outlined text-lg">{icon}</span>
+      <Icon aria-hidden="true" size={18} strokeWidth={1.8} />
       <span className="font-mono text-[9px] uppercase">{label}</span>
     </button>
   )

@@ -18,4 +18,15 @@ export default defineConfig({
       },
     },
   },
+  // Mismo proxy que en desarrollo, para poder probar el build de producción
+  // (`vite preview`) contra el backend local sin cambiar las rutas relativas.
+  preview: {
+    port: 4173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
+  },
 })

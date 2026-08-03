@@ -59,10 +59,10 @@ const config: Config = {
         'on-error-container': '#ffdad6',
       },
       fontFamily: {
-        headline: ['Inter', 'sans-serif'],
-        body: ['Inter', 'sans-serif'],
-        label: ['Space Grotesk', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        headline: ['Inter', 'Arial', 'Helvetica', 'sans-serif'],
+        body: ['Inter', 'Arial', 'Helvetica', 'sans-serif'],
+        label: ['Space Grotesk', 'Inter', 'Arial', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Consolas', 'Monaco', 'monospace'],
       },
       borderRadius: {
         DEFAULT: '0.25rem',

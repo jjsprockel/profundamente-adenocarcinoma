@@ -1,3 +1,4 @@
+import { ArrowLeft, Download, Info, Code2, FlaskConical } from 'lucide-react'
 import logoFucs from '@/assets/logo-fucs.png'
 
 interface AboutPageProps {
@@ -14,7 +15,7 @@ export default function AboutPage({ onClose }: AboutPageProps) {
             onClick={onClose}
             className="flex items-center gap-2 text-on-surface/50 hover:text-on-surface transition-colors text-sm font-body"
           >
-            <span className="material-symbols-outlined text-lg">arrow_back</span>
+            <ArrowLeft aria-hidden="true" size={18} strokeWidth={1.8} />
             Volver
           </button>
           <span className="text-on-surface/20 text-sm">|</span>
@@ -139,7 +140,7 @@ export default function AboutPage({ onClose }: AboutPageProps) {
                   download="algoritmo_adenocarcinoma.pdf"
                   className="flex items-center gap-1.5 text-xs font-mono text-primary/80 hover:text-primary transition-colors"
                 >
-                  <span className="material-symbols-outlined text-base">download</span>
+                  <Download aria-hidden="true" size={16} strokeWidth={1.8} />
                   Descargar PDF
                 </a>
               </div>
@@ -290,9 +291,7 @@ export default function AboutPage({ onClose }: AboutPageProps) {
                 'El sistema no reemplaza el juicio del patólogo ni debe utilizarse como herramienta diagnóstica autónoma.',
               ].map((text, i) => (
                 <div key={i} className="flex items-start gap-3">
-                  <span className="material-symbols-outlined text-primary text-base flex-shrink-0 mt-0.5">
-                    info
-                  </span>
+                  <Info aria-hidden="true" size={16} strokeWidth={1.8} className="text-primary flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-on-surface/80 font-body leading-relaxed">{text}</p>
                 </div>
               ))}
@@ -342,10 +341,7 @@ export default function AboutPage({ onClose }: AboutPageProps) {
               {/* Desarrollo */}
               <div className="flex items-start gap-4 bg-surface-container-high/40 rounded-xl px-5 py-4">
                 <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
-                  <span className="material-symbols-outlined text-primary text-lg"
-                    style={{ fontVariationSettings: "'FILL' 1" }}>
-                    code
-                  </span>
+                  <Code2 aria-hidden="true" size={18} strokeWidth={1.8} className="text-primary" />
                 </div>
                 <div>
                   <p className="text-[10px] font-mono text-on-surface/40 uppercase tracking-widest mb-1">
@@ -362,10 +358,7 @@ export default function AboutPage({ onClose }: AboutPageProps) {
               {/* Curaduría y revisión experta */}
               <div className="flex items-start gap-4 bg-surface-container-high/40 rounded-xl px-5 py-4">
                 <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
-                  <span className="material-symbols-outlined text-primary text-lg"
-                    style={{ fontVariationSettings: "'FILL' 1" }}>
-                    lab_research
-                  </span>
+                  <FlaskConical aria-hidden="true" size={18} strokeWidth={1.8} className="text-primary" />
                 </div>
                 <div>
                   <p className="text-[10px] font-mono text-on-surface/40 uppercase tracking-widest mb-1">

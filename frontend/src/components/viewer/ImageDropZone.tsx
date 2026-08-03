@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
+import { Loader2, Microscope } from 'lucide-react'
 import { uploadImage } from '@/api/client'
 import type { ImageKind } from '@/types'
 
@@ -86,16 +87,9 @@ export default function ImageDropZone({ onImageLoaded }: ImageDropZoneProps) {
 
           <div className="w-24 h-24 bg-surface-container-highest rounded-full flex items-center justify-center shadow-inner">
             {isLoading ? (
-              <span className="material-symbols-outlined text-4xl text-primary animate-spin">
-                progress_activity
-              </span>
+              <Loader2 aria-hidden="true" size={36} strokeWidth={1.6} className="text-primary animate-spin" />
             ) : (
-              <span
-                className="material-symbols-outlined text-4xl text-primary"
-                style={{ fontVariationSettings: "'FILL' 0, 'wght' 200" }}
-              >
-                magnification_small
-              </span>
+              <Microscope aria-hidden="true" size={36} strokeWidth={1.6} className="text-primary" />
             )}
           </div>
 

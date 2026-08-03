@@ -10,6 +10,7 @@ export default function OptionButton({ letter, text, isSelected, onClick }: Opti
     <button
       type="button"
       onClick={onClick}
+      data-testid={`option-${letter}`}
       className={[
         'w-full text-left flex items-start gap-3 px-4 py-3 rounded-lg transition-all duration-200',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',

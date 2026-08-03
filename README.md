@@ -312,22 +312,79 @@ Vite dev server  ──proxy /api──►  FastAPI (localhost:8000)
 
 ---
 
+## Funcionamiento offline
+
+La aplicación no requiere acceso a internet durante su ejecución.
+
+Todos los recursos de interfaz están incluidos localmente:
+
+- fuentes (Inter, Space Grotesk, JetBrains Mono, vía `@fontsource`, subconjuntos latin/latin-ext);
+- iconos (SVG empaquetados con `lucide-react`, sin fuentes de icono remotas);
+- logotipos (`logo-fucs.png`, empaquetado por Vite);
+- estilos (Tailwind CSS compilado localmente);
+- scripts y librerías del frontend (todas instaladas vía npm, sin CDN en tiempo de ejecución).
+
+El frontend únicamente se comunica con el backend FastAPI del mismo despliegue (rutas relativas `/api/...`). La exportación de PDF se genera en el backend con `reportlab` usando únicamente fuentes base del propio motor (Helvetica/Courier), sin fuentes ni imágenes remotas.
+
+Para verificarlo:
+
+```bash
+cd frontend
+npm run check:offline
+npm run build
+```
+
+`npm run check:offline` (que también corre automáticamente como parte de `npm run build`) escanea `src/`, `index.html`, `vite.config.ts` y `public/` en busca de referencias `http(s)://` a hosts distintos de `localhost`/`127.0.0.1`, y falla el build si encuentra alguna. El script vive en `scripts/check-offline-assets.mjs` y solo permite excepciones explícitas y documentadas (namespaces XML/SVG, que no son solicitudes de red).
+
+> La instalación (`npm install`, `pip install`, `brew install openslide`) sí requiere conexión a internet la primera vez. Lo que no requiere internet es la **ejecución** posterior de la aplicación ya instalada.
+
+### Prueba de funcionamiento sin conexión
+
+**Automatizada (Playwright):**
+
+```bash
+cd frontend
+npm run test:offline
+```
+
+Esto construye el frontend, levanta el backend y sirve el build de producción (`vite preview`), y ejecuta `tests/offline.spec.ts`, que:
+
+1. intercepta toda solicitud de red del navegador y aborta cualquiera que no vaya a `localhost`/`127.0.0.1` (simulando ausencia de internet);
+2. recarga la página, sube una imagen, usa los controles de zoom, completa las 18 preguntas del cuestionario, visualiza el resultado, exporta el PDF e inicia un nuevo caso;
+3. falla si en algún momento del recorrido se intentó contactar un host remoto (Google Fonts, CDNs, analítica, etc).
+
+**Manual:**
+
+1. `cd frontend && npm run build && npm run preview` (sirve el build de producción en `http://localhost:4173`).
+2. En otra terminal, iniciar el backend: `cd backend && ./.venv/bin/uvicorn app.main:app --port 8000`.
+3. Abrir `http://localhost:4173` en el navegador con las herramientas de desarrollador abiertas (pestaña Network).
+4. Activar "Offline" en la pestaña Network (o desconectar la red de la máquina) y recargar la página.
+5. Confirmar que la interfaz carga con sus fuentes e iconos correctos (sin texto literal como `zoom_in` y sin recuadros de fuente faltante).
+6. Cargar una imagen, usar los controles de zoom/pan, completar el cuestionario, ver el resultado, exportar el PDF e iniciar un nuevo caso — todo debe funcionar sin errores de red en la consola.
+
+---
+
 ## Estructura del proyecto
 
 ```
 pulmopath-tutor/
 │
 ├── start.sh                          # Script de arranque único
+├── scripts/
+│   └── check-offline-assets.mjs      # Falla el build si hay referencias remotas en el frontend
 │
 ├── frontend/
 │   ├── index.html
 │   ├── package.json
 │   ├── tailwind.config.ts            # Tokens de diseño completos
-│   ├── vite.config.ts                # Proxy /api → :8000
+│   ├── vite.config.ts                # Proxy /api → :8000 (dev y preview)
+│   ├── playwright.config.ts          # Config de la prueba automatizada offline
 │   ├── tsconfig.json
+│   ├── tests/
+│   │   └── offline.spec.ts           # Prueba: flujo completo sin acceso a internet
 │   └── src/
 │       ├── App.tsx                   # Estado global de la sesión
-│       ├── main.tsx
+│       ├── main.tsx                  # Importa las fuentes locales (@fontsource)
 │       ├── index.css                 # Estilos globales + Tailwind
 │       ├── vite-env.d.ts
 │       │
