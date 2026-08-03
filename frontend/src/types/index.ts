@@ -26,9 +26,15 @@ export type AppPhase =
   | 'questionnaire' // Image loaded, answering questions
   | 'result'        // Diagnosis computed
 
+// "dzi": diapositiva piramidal grande (SVS/NDPI/TIFF piramidal) servida por tiles Deep Zoom
+// "simple": imagen servida completa (JPEG/PNG/SVG/TIFF plano/DICOM convertido)
+export type ImageKind = 'dzi' | 'simple'
+
 export interface AppState {
   phase: AppPhase
   imageUrl: string | null
+  dziUrl: string | null
+  imageKind: ImageKind
   sessionId: string | null
   answers: AnswerMap
   currentSectionIndex: number

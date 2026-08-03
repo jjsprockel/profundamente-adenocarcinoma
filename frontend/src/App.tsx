@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { AppPhase, AnswerMap, DiagnosisResult } from '@/types'
+import type { AppPhase, AnswerMap, DiagnosisResult, ImageKind } from '@/types'
 import Header from '@/components/layout/Header'
 import AcademicBanner from '@/components/layout/AcademicBanner'
 import ProgressBar from '@/components/layout/ProgressBar'
@@ -12,6 +12,8 @@ import ResultModal from '@/components/results/ResultModal'
 export default function App() {
   const [phase, setPhase] = useState<AppPhase>('upload')
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [dziUrl, setDziUrl] = useState<string | null>(null)
+  const [imageKind, setImageKind] = useState<ImageKind>('simple')
   const [imageFileName, setImageFileName] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [answers, setAnswers] = useState<AnswerMap>({})
@@ -19,8 +21,16 @@ export default function App() {
   const [result, setResult] = useState<DiagnosisResult | null>(null)
   const [showAbout, setShowAbout] = useState(false)
 
-  function handleImageLoaded(url: string, sid: string, fileName: string) {
+  function handleImageLoaded(
+    url: string,
+    dzi: string | null,
+    kind: ImageKind,
+    sid: string,
+    fileName: string,
+  ) {
     setImageUrl(url)
+    setDziUrl(dzi)
+    setImageKind(kind)
     setSessionId(sid)
     setImageFileName(fileName)
     setPhase('questionnaire')
@@ -47,6 +57,8 @@ export default function App() {
   function handleNewCase() {
     setPhase('upload')
     setImageUrl(null)
+    setDziUrl(null)
+    setImageKind('simple')
     setImageFileName(null)
     setSessionId(null)
     setAnswers({})
@@ -64,7 +76,7 @@ export default function App() {
           {phase === 'upload' ? (
             <ImageDropZone onImageLoaded={handleImageLoaded} />
           ) : (
-            imageUrl && <ImageViewer imageUrl={imageUrl} />
+            imageUrl && <ImageViewer kind={imageKind} imageUrl={imageUrl} dziUrl={dziUrl} />
           )}
         </section>
 

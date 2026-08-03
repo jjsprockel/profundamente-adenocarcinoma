@@ -5,9 +5,18 @@ from pydantic import BaseModel
 
 # ─── Image ───────────────────────────────────────────────────────────────────
 
+ImageKind = Literal["dzi", "simple"]
+
+
 class ImageUploadResponse(BaseModel):
     session_id: str
+    kind: ImageKind
+    # "simple": image servible directamente (JPEG/PNG/SVG/TIFF plano/DICOM convertido)
     image_url: str
+    # "dzi": descriptor Deep Zoom para diapositivas piramidales grandes (SVS/NDPI/TIFF piramidal)
+    dzi_url: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
 
 
 # ─── Diagnosis ────────────────────────────────────────────────────────────────

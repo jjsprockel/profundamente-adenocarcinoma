@@ -39,8 +39,21 @@ El proyecto se enmarca en iniciativas orientadas a innovación en educación mé
 | Node.js | 20.x |
 | npm | 9.x |
 | Python | 3.10 |
+| OpenSlide (librería de sistema) | 4.x |
 
 No se requiere base de datos ni conexión a internet para operar.
+
+El soporte de diapositivas piramidales grandes (SVS, NDPI, TIFF piramidal) depende de la librería de sistema **OpenSlide**, que debe instalarse antes de `pip install -r requirements.txt`:
+
+```bash
+# macOS
+brew install openslide
+
+# Debian / Ubuntu
+sudo apt-get install openslide-tools libopenslide0
+```
+
+Si OpenSlide no está disponible, la aplicación sigue funcionando: los archivos que no puedan abrirse como diapositiva piramidal se sirven como imagen simple (con conversión automática a PNG cuando el formato lo requiere).
 
 ---
 
@@ -98,8 +111,8 @@ kill $(lsof -ti:8000) $(lsof -ti:5173)
 
 ### Funcionalidades implementadas
 
-- Carga de imagen (JPEG, PNG) con soporte de arrastrar y soltar
-- Visor central con zoom, paneo y reinicio de vista (`react-zoom-pan-pinch`)
+- Carga de imagen con soporte de arrastrar y soltar en múltiples formatos: **JPEG, PNG, SVG, TIFF/TIF (incluidas diapositivas piramidales grandes tipo whole-slide image) y DICOM (.dcm)**
+- Visor central con zoom y paneo basado en **OpenSeadragon**, con navegación Deep Zoom por tiles para diapositivas piramidales grandes y visor de imagen simple para el resto de formatos
 - Cuestionario estructurado en 4 secciones (18 preguntas totales, transcripción fiel del instrumento diagnóstico)
 - Navegación controlada: respuesta obligatoria para avanzar, retroceso libre con edición de respuestas previas
 - Barra de progreso inferior por dominios (5 nodos: Arquitectura, Citología, Estroma, Características Especiales, Integración)
@@ -111,9 +124,27 @@ kill $(lsof -ti:8000) $(lsof -ti:5173)
 ### Restricciones del MVP
 
 - Opera solo en local, sin autenticación ni base de datos
-- La imagen se almacena en memoria temporal del servidor; se descarta al reiniciar
+- La imagen se almacena en un archivo temporal del servidor; se descarta al reiniciar
 - No conserva casos entre sesiones
 - No usa inteligencia artificial ni inferencia probabilística; toda la lógica es por reglas explícitas
+
+---
+
+## Formatos de imagen soportados
+
+El backend detecta el tipo de archivo y decide cómo servirlo (`app/services/slide_service.py`):
+
+| Formato | Manejo |
+|---|---|
+| SVG | Se sirve tal cual (vectorial, no requiere conversión) |
+| TIFF/TIF piramidal (SVS, NDPI, MRXS, TIFF con tiles multi-resolución, ...) | Se abre con **OpenSlide** y se sirve como tiles **Deep Zoom (DZI)**; permite navegar diapositivas de varios GB con rendimiento fluido |
+| TIFF/TIF plano (no piramidal), BMP, WebP | Se convierte a PNG con Pillow y se sirve como imagen simple |
+| JPEG, PNG | Se sirven directamente |
+| DICOM (.dcm) | Se extrae el pixel array con `pydicom` (primer frame si es multi-frame), se normaliza el contraste y se convierte a PNG |
+
+El frontend recibe del backend un campo `kind` (`"dzi"` o `"simple"`) y configura el visor **OpenSeadragon** en consecuencia: `tileSources` apuntando al descriptor `.dzi` para diapositivas piramidales, o a la imagen simple para el resto.
+
+> **Nota:** el soporte de DICOM cubre imágenes de captura secundaria de un solo frame o representativo (caso típico de exportaciones de patología digital). No implementa el estándar completo de WSI DICOM multi-frame piramidal (que requeriría una librería especializada como `wsidicom`).
 
 ---
 
@@ -210,8 +241,10 @@ El backend expone los siguientes endpoints:
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/api/health` | Estado del servicio |
-| `POST` | `/api/image/upload` | Sube imagen (JPEG/PNG); devuelve `session_id` e `image_url` |
-| `GET` | `/api/image/{session_id}` | Sirve la imagen temporal de la sesión |
+| `POST` | `/api/image/upload` | Sube imagen (JPEG/PNG/SVG/TIFF/DICOM); devuelve `session_id`, `kind` (`dzi`/`simple`), `image_url` y, si aplica, `dzi_url` |
+| `GET` | `/api/image/{session_id}` | Sirve la imagen (o una miniatura, si es una diapositiva `dzi`) |
+| `GET` | `/api/image/{session_id}.dzi` | Descriptor Deep Zoom (XML) de una diapositiva piramidal |
+| `GET` | `/api/image/{session_id}_files/{level}/{col}_{row}.jpeg` | Tile individual de una diapositiva piramidal |
 | `POST` | `/api/diagnosis/evaluate` | Recibe `session_id` + `answers`; devuelve resultado diagnóstico |
 | `POST` | `/api/export/pdf` | Recibe resultado + nombre de archivo; devuelve PDF |
 
@@ -247,7 +280,7 @@ Navegador (localhost:5173)
     ▼
 Vite dev server  ──proxy /api──►  FastAPI (localhost:8000)
                                        │
-                                       ├── /api/image      → almacenamiento temporal en memoria
+                                       ├── /api/image      → slide_service.py (OpenSlide Deep Zoom / conversión Pillow / pydicom)
                                        ├── /api/diagnosis  → rules_engine.py (lógica pura)
                                        └── /api/export     → pdf_service.py (reportlab)
 ```
@@ -262,7 +295,7 @@ Vite dev server  ──proxy /api──►  FastAPI (localhost:8000)
 | TypeScript | 5.8 | Tipado estricto |
 | Vite | 6 | Bundler y dev server |
 | Tailwind CSS | 3.4 | Estilos (sistema de diseño "Digital Curator") |
-| react-zoom-pan-pinch | 3.6 | Visor de imagen |
+| OpenSeadragon | 4.x | Visor de imagen: Deep Zoom para diapositivas piramidales, imagen simple para el resto |
 
 **Backend**
 
@@ -272,7 +305,10 @@ Vite dev server  ──proxy /api──►  FastAPI (localhost:8000)
 | uvicorn | 0.34 | Servidor ASGI |
 | python-multipart | 0.0.20 | Carga de archivos |
 | reportlab | 4.4 | Generación de PDF |
-| Pillow | 11.2 | Validación de imágenes |
+| Pillow | 11.2 | Validación y conversión de imágenes |
+| openslide-python | 1.4 | Lectura y tiles Deep Zoom de diapositivas piramidales (requiere OpenSlide instalado a nivel de sistema) |
+| pydicom | 3.0 | Lectura de archivos DICOM (.dcm) |
+| numpy | 2.2 | Normalización de contraste para la conversión DICOM → PNG |
 
 ---
 
@@ -318,8 +354,8 @@ pulmopath-tutor/
 │           │   └── AboutPage.tsx     # Página "Acerca de" completa
 │           │
 │           ├── viewer/
-│           │   ├── ImageDropZone.tsx # Drag & drop + botón explorar
-│           │   └── ImageViewer.tsx   # Zoom / paneo / reset
+│           │   ├── ImageDropZone.tsx # Drag & drop + botón explorar (JPEG/PNG/SVG/TIFF/DICOM)
+│           │   └── ImageViewer.tsx   # OpenSeadragon: Deep Zoom (dzi) o imagen simple
 │           │
 │           ├── questionnaire/
 │           │   ├── QuestionPanel.tsx # Orquestador del cuestionario
@@ -336,7 +372,7 @@ pulmopath-tutor/
         ├── main.py                   # App FastAPI + CORS
         │
         ├── api/
-        │   ├── image.py              # POST /image/upload · GET /image/{id}
+        │   ├── image.py              # POST /image/upload · GET /image/{id} · .dzi · tiles
         │   ├── diagnosis.py          # POST /diagnosis/evaluate
         │   └── export.py             # POST /export/pdf
         │
@@ -347,6 +383,7 @@ pulmopath-tutor/
         │   └── schemas.py            # Pydantic: DiagnosisRequest, DiagnosisResult, PdfRequest
         │
         └── services/
+            ├── slide_service.py      # Detección de formato, OpenSlide Deep Zoom, conversión DICOM/TIFF
             └── pdf_service.py        # Generación PDF con reportlab
 ```
 

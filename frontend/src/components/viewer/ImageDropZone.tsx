@@ -1,11 +1,23 @@
 import { useState, useRef, useCallback } from 'react'
 import { uploadImage } from '@/api/client'
+import type { ImageKind } from '@/types'
 
 interface ImageDropZoneProps {
-  onImageLoaded: (url: string, sessionId: string, fileName: string) => void
+  onImageLoaded: (
+    url: string,
+    dziUrl: string | null,
+    kind: ImageKind,
+    sessionId: string,
+    fileName: string,
+  ) => void
 }
 
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png']
+const ACCEPTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.svg', '.tif', '.tiff', '.dcm']
+
+function hasAcceptedExtension(fileName: string): boolean {
+  const lower = fileName.toLowerCase()
+  return ACCEPTED_EXTENSIONS.some(ext => lower.endsWith(ext))
+}
 
 export default function ImageDropZone({ onImageLoaded }: ImageDropZoneProps) {
   const [isDragging, setIsDragging] = useState(false)
@@ -15,17 +27,17 @@ export default function ImageDropZone({ onImageLoaded }: ImageDropZoneProps) {
 
   const processFile = useCallback(
     async (file: File) => {
-      if (!ACCEPTED_TYPES.includes(file.type)) {
-        setError('Formato no soportado. Use JPEG o PNG.')
+      if (!hasAcceptedExtension(file.name)) {
+        setError('Formato no soportado. Use JPEG, PNG, SVG, TIFF/TIF o DICOM (.dcm).')
         return
       }
       setError(null)
       setIsLoading(true)
       try {
-        const { session_id, image_url } = await uploadImage(file)
-        onImageLoaded(image_url, session_id, file.name)
-      } catch {
-        setError('Error al cargar la imagen. Intente nuevamente.')
+        const { session_id, image_url, dzi_url, kind } = await uploadImage(file)
+        onImageLoaded(image_url, dzi_url, kind, session_id, file.name)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al cargar la imagen. Intente nuevamente.')
       } finally {
         setIsLoading(false)
       }
@@ -67,7 +79,7 @@ export default function ImageDropZone({ onImageLoaded }: ImageDropZoneProps) {
           <input
             ref={inputRef}
             type="file"
-            accept=".jpg,.jpeg,.png"
+            accept=".jpg,.jpeg,.png,.svg,.tif,.tiff,.dcm"
             className="hidden"
             onChange={handleFileInput}
           />
@@ -92,7 +104,7 @@ export default function ImageDropZone({ onImageLoaded }: ImageDropZoneProps) {
               {isLoading ? 'Cargando imagen...' : 'Sube una imagen de histopatología'}
             </p>
             <p className="text-sm text-on-surface/50 font-mono">
-              Soporta JPEG y PNG · Arrastra o haz clic
+              Soporta JPEG, PNG, SVG, TIFF y DICOM · Arrastra o haz clic
             </p>
           </div>
 

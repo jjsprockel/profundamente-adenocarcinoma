@@ -1,16 +1,28 @@
-import type { DiagnosisResult } from '@/types'
+import type { DiagnosisResult, ImageKind } from '@/types'
 
 const BASE = '/api'
 
 // ─── Image ────────────────────────────────────────────────────────────────────
 
-export async function uploadImage(file: File): Promise<{ session_id: string; image_url: string }> {
+export interface UploadImageResponse {
+  session_id: string
+  kind: ImageKind
+  image_url: string
+  dzi_url: string | null
+  width: number | null
+  height: number | null
+}
+
+export async function uploadImage(file: File): Promise<UploadImageResponse> {
   const form = new FormData()
   form.append('file', file)
 
   const res = await fetch(`${BASE}/image/upload`, { method: 'POST', body: form })
-  if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`)
-  return res.json() as Promise<{ session_id: string; image_url: string }>
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null)
+    throw new Error(detail?.detail ?? `Upload failed: ${res.statusText}`)
+  }
+  return res.json() as Promise<UploadImageResponse>
 }
 
 // ─── Diagnosis ────────────────────────────────────────────────────────────────
