@@ -27,6 +27,7 @@ export default function QuestionCard({ question, selectedLetter, onSelect }: Que
             key={option.letter}
             letter={option.letter}
             text={option.text}
+            help={option.help}
             isSelected={selectedLetter === option.letter}
             onClick={() => onSelect(option.letter)}
           />

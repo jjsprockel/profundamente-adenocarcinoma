@@ -1,8 +1,15 @@
 // ─── Questionnaire ───────────────────────────────────────────────────────────
 
+export interface QuestionOptionHelp {
+  title: string
+  body: string
+  examples?: string[]
+}
+
 export interface QuestionOption {
   letter: string
   text: string
+  help?: QuestionOptionHelp
 }
 
 export interface Question {
