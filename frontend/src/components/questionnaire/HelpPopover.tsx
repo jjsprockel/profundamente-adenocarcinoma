@@ -39,7 +39,10 @@ export default function HelpPopover({ help }: HelpPopoverProps) {
     setPosition({ top: rect.top - GAP, left })
   }, [isOpen])
 
-  // Closes on click outside, Escape, or scrolling the panel — never on hover.
+  // Closes on click outside or Escape — never on hover. (Deliberately not on
+  // scroll: the browser's own focus-into-view behavior fires a scroll event
+  // right after the opening click for triggers near the edge of the panel,
+  // which closed the popover before it was ever visible to the user.)
   useEffect(() => {
     if (!isOpen) return
 
@@ -53,19 +56,12 @@ export default function HelpPopover({ help }: HelpPopoverProps) {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') setIsOpen(false)
     }
-    function handleScroll() {
-      setIsOpen(false)
-    }
 
     document.addEventListener('mousedown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
-    // `capture: true` so scrolling any ancestor scroll container is caught
-    // (native scroll events don't bubble).
-    window.addEventListener('scroll', handleScroll, true)
     return () => {
       document.removeEventListener('mousedown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('scroll', handleScroll, true)
     }
   }, [isOpen])
 
