@@ -1,11 +1,13 @@
 import type { DiagnosisResult, ConfidenceLevel } from '@/types'
 import { exportPdf } from '@/api/client'
+import { impressionMatchesResult } from '@/data/initialImpression'
 import { useState } from 'react'
-import { AlertTriangle, Download } from 'lucide-react'
+import { AlertTriangle, Download, Eye } from 'lucide-react'
 
 interface ResultModalProps {
   result: DiagnosisResult
   imageFileName: string | null
+  initialImpression: string | null
   onClose: () => void
   onNewCase: () => void
 }
@@ -17,13 +19,19 @@ const CONFIDENCE_STYLES: Record<ConfidenceLevel, string> = {
   indeterminado: 'text-on-surface/50',
 }
 
-export default function ResultModal({ result, imageFileName, onClose, onNewCase }: ResultModalProps) {
+export default function ResultModal({
+  result,
+  imageFileName,
+  initialImpression,
+  onClose,
+  onNewCase,
+}: ResultModalProps) {
   const [exporting, setExporting] = useState(false)
 
   async function handleExport() {
     setExporting(true)
     try {
-      await exportPdf(result, imageFileName ?? undefined)
+      await exportPdf(result, imageFileName ?? undefined, initialImpression ?? undefined)
     } catch {
       // Silent: error is non-blocking for the UI
     } finally {
@@ -72,6 +80,31 @@ export default function ResultModal({ result, imageFileName, onClose, onNewCase 
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto scrollbar-thin px-8 py-6 space-y-6">
+          {/* Initial gestalt impression vs. structured result */}
+          {initialImpression && (
+            <div className="flex items-center gap-3 bg-surface-container-high/60 rounded-xl px-4 py-3">
+              <Eye aria-hidden="true" size={16} strokeWidth={1.8} className="text-on-surface/40 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono uppercase tracking-widest text-on-surface/40">
+                  Impresión inicial (antes del cuestionario)
+                </p>
+                <p className="text-sm font-bold text-on-surface font-headline">{initialImpression}</p>
+              </div>
+              <span
+                className={[
+                  'ml-auto flex-shrink-0 text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full',
+                  impressionMatchesResult(initialImpression, result.main_pattern)
+                    ? 'bg-tertiary/15 text-tertiary'
+                    : 'bg-error/15 text-error',
+                ].join(' ')}
+              >
+                {impressionMatchesResult(initialImpression, result.main_pattern)
+                  ? 'Coincide'
+                  : 'Difiere'}
+              </span>
+            </div>
+          )}
+
           {/* Narrative */}
           {result.narrative && (
             <Section title="Razonamiento">

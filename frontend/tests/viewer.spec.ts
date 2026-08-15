@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { samplePngFile, sampleHistologyImageFile, blockExternalRequests } from './fixtures'
+import { samplePngFile, sampleHistologyImageFile, blockExternalRequests, completeInitialImpression } from './fixtures'
 
 /**
  * Recorre los controles enriquecidos del visor de imágenes: nombre de
@@ -19,6 +19,9 @@ test('el visor de imagen expone nombre, zoom, ajuste, pantalla completa y persis
   // ── Nombre de archivo visible en la barra superior ────────────────────
   await expect(page.getByText('adenocarcinoma_01.png')).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText(/^PNG/)).toBeVisible()
+
+  // ── Impresión diagnóstica inicial (antes del cuestionario) ────────────
+  await completeInitialImpression(page)
 
   const zoomIndicator = page.locator('[aria-live="polite"]')
   await expect(zoomIndicator).toBeVisible()

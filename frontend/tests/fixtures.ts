@@ -18,6 +18,17 @@ export function sampleHistologyImageFile(name = 'adenocarcinoma_01.png') {
   return { name, mimeType: 'image/png', buffer: Buffer.from(SAMPLE_HISTOLOGY_PNG_BASE64, 'base64') }
 }
 
+/**
+ * After uploading an image, the app shows a one-off "initial impression"
+ * step (pick a gestalt pattern from the full option list) before the
+ * structured questionnaire appears. Every e2e flow that uploads an image
+ * must clear it first.
+ */
+export async function completeInitialImpression(page: Page) {
+  await page.locator('[data-testid^="option-"]').first().click()
+  await page.getByTestId('continue-initial-impression').click()
+}
+
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1'])
 
 /**

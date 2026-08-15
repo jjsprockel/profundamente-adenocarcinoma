@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { AppPhase, AnswerMap, DiagnosisResult, ImageKind } from '@/types'
 import { ALL_QUESTION_IDS, SECTIONS } from '@/data/questionnaire'
+import { getInitialImpressionLabel } from '@/data/initialImpression'
 import { getCompletedSectionIds } from '@/lib/sectionStatus'
 import Header from '@/components/layout/Header'
 import AcademicBanner from '@/components/layout/AcademicBanner'
@@ -8,6 +9,7 @@ import ProgressBar from '@/components/layout/ProgressBar'
 import AboutPage from '@/components/layout/AboutPage'
 import ImageDropZone from '@/components/viewer/ImageDropZone'
 import ImageViewer from '@/components/viewer/ImageViewer'
+import InitialImpressionStep from '@/components/questionnaire/InitialImpressionStep'
 import QuestionPanel from '@/components/questionnaire/QuestionPanel'
 import ResultModal from '@/components/results/ResultModal'
 
@@ -22,6 +24,11 @@ export default function App() {
   const [visibleSectionId, setVisibleSectionId] = useState<string | null>(null)
   const [result, setResult] = useState<DiagnosisResult | null>(null)
   const [showAbout, setShowAbout] = useState(false)
+  // Gestalt impression captured before the structured questionnaire — kept
+  // entirely separate from `answers` so it never reaches the rules engine,
+  // only the final report.
+  const [initialImpression, setInitialImpression] = useState<string | null>(null)
+  const initialImpressionLabel = getInitialImpressionLabel(initialImpression)
 
   // Derived, not stored: a section is "completed" exactly when every one of
   // its questions has a valid answer — never inferred from navigation order.
@@ -47,7 +54,7 @@ export default function App() {
     setImageKind(kind)
     setSessionId(sid)
     setImageFileName(fileName)
-    setPhase('questionnaire')
+    setPhase('initial-impression')
   }
 
   function handleAnswer(questionId: string, letter: string) {
@@ -69,6 +76,7 @@ export default function App() {
     setAnswers({})
     setVisibleSectionId(null)
     setResult(null)
+    setInitialImpression(null)
   }
 
   return (
@@ -95,14 +103,22 @@ export default function App() {
 
         {/* Right: Question panel */}
         <aside className="w-[450px] flex-shrink-0 border-l border-outline-variant/10 flex flex-col overflow-hidden bg-surface-container-low">
-          <QuestionPanel
-            phase={phase}
-            answers={answers}
-            sessionId={sessionId}
-            onAnswer={handleAnswer}
-            onCurrentSectionChange={setVisibleSectionId}
-            onDiagnosis={handleDiagnosis}
-          />
+          {phase === 'initial-impression' ? (
+            <InitialImpressionStep
+              value={initialImpression}
+              onSelect={setInitialImpression}
+              onContinue={() => setPhase('questionnaire')}
+            />
+          ) : (
+            <QuestionPanel
+              phase={phase}
+              answers={answers}
+              sessionId={sessionId}
+              onAnswer={handleAnswer}
+              onCurrentSectionChange={setVisibleSectionId}
+              onDiagnosis={handleDiagnosis}
+            />
+          )}
         </aside>
       </main>
 
@@ -119,6 +135,7 @@ export default function App() {
         <ResultModal
           result={result}
           imageFileName={imageFileName}
+          initialImpression={initialImpressionLabel}
           onClose={() => setPhase('questionnaire')}
           onNewCase={handleNewCase}
         />

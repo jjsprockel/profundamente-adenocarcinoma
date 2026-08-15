@@ -25,7 +25,11 @@ from reportlab.lib.enums import TA_CENTER
 from app.models.schemas import DiagnosisResult
 
 
-def generate_pdf(result: DiagnosisResult, image_filename: Optional[str] = None) -> bytes:
+def generate_pdf(
+    result: DiagnosisResult,
+    image_filename: Optional[str] = None,
+    initial_impression: Optional[str] = None,
+) -> bytes:
     buffer = io.BytesIO()
 
     doc = SimpleDocTemplate(
@@ -38,7 +42,12 @@ def generate_pdf(result: DiagnosisResult, image_filename: Optional[str] = None) 
     )
 
     styles = _build_styles()
-    story = _build_story(result, styles, image_filename=image_filename)
+    story = _build_story(
+        result,
+        styles,
+        image_filename=image_filename,
+        initial_impression=initial_impression,
+    )
 
     doc.build(story)
     return buffer.getvalue()
@@ -150,10 +159,15 @@ def _confidence_color(level: str) -> str:
     }.get(level, "#222222")
 
 
+def _impression_matches(impression: str, main_pattern: str) -> bool:
+    return impression.lower() in main_pattern.lower()
+
+
 def _build_story(
     result: DiagnosisResult,
     styles: dict,
     image_filename: Optional[str] = None,
+    initial_impression: Optional[str] = None,
 ) -> list:
     story = []
 
@@ -197,6 +211,19 @@ def _build_story(
         styles["confidence"],
     ))
     story.append(Spacer(1, 8))
+
+    # ── Initial gestalt impression vs. structured result ─────────────────────
+    if initial_impression:
+        matches = _impression_matches(initial_impression, result.main_pattern)
+        match_color = "#006633" if matches else "#990000"
+        match_label = "Coincide" if matches else "Difiere"
+        story.append(Paragraph(
+            f"Impresión diagnóstica inicial (antes del cuestionario): "
+            f"<b>{initial_impression}</b> — "
+            f'<font color="{match_color}"><b>{match_label}</b></font> del resultado sistemático',
+            styles["mono"],
+        ))
+        story.append(Spacer(1, 8))
 
     # ── Narrative ─────────────────────────────────────────────────────────────
     if result.narrative:

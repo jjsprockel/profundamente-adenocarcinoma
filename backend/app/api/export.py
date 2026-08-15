@@ -8,7 +8,11 @@ router = APIRouter(prefix="/export", tags=["export"])
 
 @router.post("/pdf")
 async def export_pdf(request: PdfRequest) -> Response:
-    pdf_bytes = generate_pdf(request.result, image_filename=request.image_filename)
+    pdf_bytes = generate_pdf(
+        request.result,
+        image_filename=request.image_filename,
+        initial_impression=request.initial_impression,
+    )
 
     # Build a safe filename for the download
     base = request.image_filename.rsplit(".", 1)[0] if request.image_filename else "resultado-diagnostico"

@@ -29,9 +29,10 @@ export interface Section {
 export type AnswerMap = Record<string, string>  // { A1: "B", C3: "A", ... }
 
 export type AppPhase =
-  | 'upload'        // Initial: waiting for image
-  | 'questionnaire' // Image loaded, answering questions
-  | 'result'        // Diagnosis computed
+  | 'upload'              // Initial: waiting for image
+  | 'initial-impression'  // Image loaded, gestalt pattern impression before the structured questionnaire
+  | 'questionnaire'       // Answering the structured questionnaire
+  | 'result'              // Diagnosis computed
 
 // "dzi": diapositiva piramidal grande (SVS/NDPI/TIFF piramidal) servida por tiles Deep Zoom
 // "simple": imagen servida completa (JPEG/PNG/SVG/TIFF plano/DICOM convertido)

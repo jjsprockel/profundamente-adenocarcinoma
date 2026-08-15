@@ -48,3 +48,7 @@ class DiagnosisResult(BaseModel):
 class PdfRequest(BaseModel):
     result: DiagnosisResult
     image_filename: Optional[str] = None
+    # Impresión diagnóstica inicial (gestalt) capturada antes del cuestionario
+    # estructurado. No participa del motor de reglas — solo se incluye en el
+    # reporte para comparar contra el resultado sistemático.
+    initial_impression: Optional[str] = None

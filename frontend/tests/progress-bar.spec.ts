@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { samplePngFile } from './fixtures'
+import { samplePngFile, completeInitialImpression } from './fixtures'
 
 /**
  * Verifica que la barra de progreso nunca muestra más de un dominio activo
@@ -12,6 +12,10 @@ test('la barra de progreso muestra exactamente un paso activo a la vez', async (
 
   // ── Carga de imagen: ningún dominio debe estar activo ─────────────────
   await page.locator('input[type="file"]').setInputFiles(samplePngFile())
+  await expect(page.getByTestId('continue-initial-impression')).toBeVisible({ timeout: 15_000 })
+  await expect(page.locator('[aria-current="step"]')).toHaveCount(0)
+  await completeInitialImpression(page)
+
   await expect(page.getByTestId('next-question')).toBeVisible({ timeout: 15_000 })
 
   // ── Primera pregunta: solo "Arquitectura" activa ──────────────────────

@@ -42,11 +42,19 @@ export async function evaluateDiagnosis(
 
 // ─── PDF Export ───────────────────────────────────────────────────────────────
 
-export async function exportPdf(result: DiagnosisResult, imageFileName?: string): Promise<void> {
+export async function exportPdf(
+  result: DiagnosisResult,
+  imageFileName?: string,
+  initialImpression?: string,
+): Promise<void> {
   const res = await fetch(`${BASE}/export/pdf`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ result, image_filename: imageFileName ?? null }),
+    body: JSON.stringify({
+      result,
+      image_filename: imageFileName ?? null,
+      initial_impression: initialImpression ?? null,
+    }),
   })
   if (!res.ok) throw new Error(`PDF export failed: ${res.statusText}`)
 
