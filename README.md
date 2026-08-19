@@ -131,7 +131,7 @@ El backend detecta el tipo de archivo y decide cómo procesarlo (`app/services/s
 | JPEG, PNG | Se sirven directamente |
 | DICOM (.dcm) | Se extrae el pixel array con `pydicom` (primer frame si es multi-frame), se normaliza el contraste y se convierte a PNG |
 
-**Tamaño máximo por archivo: 3 MB** (deja margen bajo el límite de ~4.5 MB de una función de Vercel, incluso después de la inflación ~33% del base64 en la respuesta).
+**Tamaño máximo por archivo: 3 MB.** Como TIFF/BMP/WebP se reconvierten a PNG sin pérdida, un archivo muy comprimido podría, en teoría, generar una respuesta más pesada que el original — por eso el backend además valida el tamaño ya codificado en base64 antes de responder, y devuelve un error controlado (413) en vez de dejar que la función de Vercel corte la respuesta a la mitad.
 
 > **No incluido:** diapositivas piramidales grandes (whole-slide images: SVS, NDPI, TIFF multi-resolución con tiles) — requieren **OpenSlide**, una librería nativa de sistema que no puede instalarse en un runtime serverless, y una sesión de servidor persistente para servir tiles bajo demanda; ninguna de las dos encaja con un despliegue stateless. El soporte de DICOM cubre imágenes de captura secundaria de un solo frame o representativo, no el estándar completo de WSI DICOM multi-frame piramidal.
 
@@ -364,7 +364,8 @@ pulmopath-tutor/
 ├── vercel.json                       # Build + rewrite /api/* → función serverless (ver Despliegue)
 ├── api/
 │   ├── index.py                      # Entry point de Vercel: expone app/main.py como función única
-│   └── requirements.txt              # Espejo de backend/requirements.txt (Vercel lo busca aquí)
+│   ├── requirements.txt              # Deps de backend/requirements.txt sin uvicorn (Vercel lo busca aquí)
+│   └── .python-version               # Fija Python 3.12 para el build de Vercel
 │
 ├── start.sh                          # Script de arranque único (local)
 ├── render.yaml                       # Config de despliegue en Render (proceso persistente)
@@ -457,8 +458,11 @@ Un único proyecto de Vercel sirve el frontend como sitio estático desde su CDN
    - `buildCommand`: compila el frontend (`cd frontend && npm install && npm run build`)
    - `outputDirectory`: `frontend/dist`, servido directamente por el CDN de Vercel
    - `rewrites`: todo lo que llegue a `/api/*` se enruta a la función `api/index.py`
-3. `api/index.py` expone la misma app de FastAPI (`backend/app/main.py`) como función ASGI única — Vercel la detecta automáticamente. `api/requirements.txt` (espejo de `backend/requirements.txt`) es lo que Vercel instala para esa función.
-4. No hace falta configurar variables de entorno (`CORS_ORIGINS` no aplica: mismo origen).
+3. `api/index.py` expone la misma app de FastAPI (`backend/app/main.py`) como función ASGI única — Vercel la detecta automáticamente. `api/requirements.txt` es la lista de dependencias que Vercel instala para esa función: mismas versiones que `backend/requirements.txt` pero **sin** `uvicorn` (Vercel invoca el ASGI `app` directamente, nunca levanta un servidor HTTP propio, así que incluir uvicorn solo agregaría peso y extensiones nativas innecesarias al bundle).
+4. `api/.python-version` fija Python 3.12 (el runtime por defecto de Vercel al momento de escribir esto), para no depender de que ese default no cambie.
+5. No hace falta configurar variables de entorno (`CORS_ORIGINS` no aplica: mismo origen).
+
+**Límites del plan gratuito (Hobby) ya contemplados:** cuerpo de request/response de función ≤ 4.5 MB (de ahí el límite de 3 MB por archivo, más una validación adicional del tamaño ya codificado en base64 antes de responder — ver [Formatos de imagen soportados](#formatos-de-imagen-soportados)) y bundle de función Python ≤ 500 MB sin comprimir (las dependencias actuales — FastAPI, Pillow, pydicom, numpy, reportlab — ocupan una fracción de eso). Memoria (2 GB) y duración (300 s) por función ya alcanzan el máximo del plan Hobby por defecto, sin configuración adicional.
 
 **Limitación asumida:** el backend en Vercel solo sirve imágenes simples (ver [Formatos de imagen soportados](#formatos-de-imagen-soportados)), no diapositivas piramidales grandes — eso requeriría OpenSlide (librería nativa) y una sesión de servidor persistente, incompatibles con un runtime serverless.
 

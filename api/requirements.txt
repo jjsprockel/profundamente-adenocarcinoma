@@ -1,9 +1,11 @@
 # Vercel's Python builder looks for requirements.txt next to the function
-# entry point (api/index.py). Keep this in sync with backend/requirements.txt
-# — uvicorn isn't actually used by Vercel's own ASGI invocation, but it's
-# harmless to include and keeps the two files identical.
+# entry point (api/index.py). Keep the dependency versions in sync with
+# backend/requirements.txt — but NOT uvicorn: Vercel loads the `app` ASGI
+# callable directly and never shells out to a real HTTP server, so
+# uvicorn[standard]'s extras (uvloop, httptools, websockets, watchfiles)
+# would only add unused weight and C-extension build risk to the function
+# bundle. It stays in backend/requirements.txt for local dev and Render.
 fastapi==0.115.12
-uvicorn[standard]==0.34.2
 python-multipart==0.0.20
 reportlab==4.4.0
 Pillow==11.2.1

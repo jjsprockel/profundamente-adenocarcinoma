@@ -26,9 +26,12 @@ import numpy as np
 import pydicom
 from PIL import Image
 
-# A handful of academic microscopy captures can still be large; this is a
-# trusted local/academic upload, not arbitrary web input.
-Image.MAX_IMAGE_PIXELS = None
+# The upload endpoint is publicly reachable, so a small, highly-compressed
+# file (e.g. a crafted TIFF/WebP "decompression bomb") could otherwise
+# decode to a huge pixel buffer and exhaust memory/CPU on a single request.
+# 100 MP is far beyond any legitimate flat capture that fits the 3 MB
+# upload cap, so this only blocks pathological input.
+Image.MAX_IMAGE_PIXELS = 100_000_000
 
 SVG_EXTENSIONS = {".svg"}
 DICOM_EXTENSIONS = {".dcm"}

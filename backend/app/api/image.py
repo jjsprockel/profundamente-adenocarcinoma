@@ -19,10 +19,17 @@ CONTENT_TYPE_TO_EXTENSION = {
     "application/dicom": ".dcm",
 }
 # Kept comfortably under the ~4.5 MB request-body limit of a Vercel
-# serverless function (base64-encoding the response also inflates size by
-# ~33%, so this leaves headroom on the response side too).
+# serverless function. This is only a cap on the *uploaded* bytes — some
+# formats (WebP, BMP, flat TIFF) get re-encoded as lossless PNG, which can
+# come out larger than the original, so the actual response size is
+# enforced separately below via MAX_RESPONSE_B64_BYTES.
 MAX_FILE_SIZE_MB = 3
 CHUNK_SIZE = 512 * 1024
+
+# Vercel's ~4.5 MB response-body limit applies to the base64-encoded data
+# URI, not the raw image bytes (base64 inflates size by ~33%). Stay under
+# it with headroom for the small JSON wrapper (session_id, kind, etc.).
+MAX_RESPONSE_B64_BYTES = 4 * 1024 * 1024
 
 
 def _resolve_extension(filename: str | None, content_type: str | None) -> str:
@@ -77,6 +84,13 @@ async def upload_image(file: UploadFile = File(...)) -> ImageUploadResponse:
         path.unlink(missing_ok=True)
 
     encoded = base64.b64encode(processed.data).decode("ascii")
+    if len(encoded) > MAX_RESPONSE_B64_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="La imagen procesada quedó demasiado grande para mostrarse "
+            "(la conversión a PNG puede pesar más que el archivo original). "
+            "Pruebe con una imagen más pequeña o en JPEG/PNG.",
+        )
     data_uri = f"data:{processed.media_type};base64,{encoded}"
 
     return ImageUploadResponse(
