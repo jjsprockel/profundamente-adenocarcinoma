@@ -22,7 +22,14 @@ from reportlab.platypus import (
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER
 
-from app.models.schemas import AnsweredQuestion, DiagnosisResult
+from app.models.schemas import AnsweredQuestion, DiagnosisResult, RespondentInfo
+
+EXPERIENCE_LEVEL_LABELS = {
+    "graduado": "Graduado",
+    "residente_1": "1er año de residencia",
+    "residente_2": "2do año de residencia",
+    "residente_3": "3er año de residencia",
+}
 
 
 def generate_pdf(
@@ -30,6 +37,7 @@ def generate_pdf(
     image_filename: Optional[str] = None,
     initial_impression: Optional[str] = None,
     answers: Optional[list[AnsweredQuestion]] = None,
+    respondent: Optional[RespondentInfo] = None,
 ) -> bytes:
     buffer = io.BytesIO()
 
@@ -49,6 +57,7 @@ def generate_pdf(
         image_filename=image_filename,
         initial_impression=initial_impression,
         answers=answers,
+        respondent=respondent,
     )
 
     doc.build(story)
@@ -196,6 +205,7 @@ def _build_story(
     image_filename: Optional[str] = None,
     initial_impression: Optional[str] = None,
     answers: Optional[list[AnsweredQuestion]] = None,
+    respondent: Optional[RespondentInfo] = None,
 ) -> list:
     story = []
 
@@ -215,6 +225,27 @@ def _build_story(
             f"Caso: {image_filename}",
             styles["case_label"],
         ))
+
+    # ── Datos del evaluador (identificación anonimizada + experiencia) ───────
+    if respondent:
+        parts = []
+        if respondent.identification:
+            parts.append(f"Evaluador: {respondent.identification}")
+        if respondent.experience_level:
+            parts.append(
+                "Experiencia: "
+                + EXPERIENCE_LEVEL_LABELS.get(respondent.experience_level, respondent.experience_level)
+            )
+        if respondent.has_pulmonary_pathology_experience is not None:
+            parts.append(
+                "Experiencia en patología pulmonar: "
+                + ("Sí" if respondent.has_pulmonary_pathology_experience else "No")
+            )
+        if respondent.experience_level == "graduado" and respondent.years_as_pathologist is not None:
+            parts.append(f"Años de experiencia como patólogo: {respondent.years_as_pathologist}")
+        if parts:
+            story.append(Paragraph(" · ".join(parts), styles["case_label"]))
+
     story.append(Paragraph(
         f"Generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M')} · Uso académico / investigativo",
         styles["meta"],

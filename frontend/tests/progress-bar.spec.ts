@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { samplePngFile, completeInitialImpression } from './fixtures'
+import { samplePngFile, completeInitialImpression, completeRespondentSurvey } from './fixtures'
 
 /**
  * Verifica que la barra de progreso nunca muestra más de un dominio activo
@@ -9,6 +9,7 @@ import { samplePngFile, completeInitialImpression } from './fixtures'
 
 test('la barra de progreso muestra exactamente un paso activo a la vez', async ({ page }) => {
   await page.goto('/')
+  await completeRespondentSurvey(page)
 
   // ── Carga de imagen: ningún dominio debe estar activo ─────────────────
   await page.locator('input[type="file"]').setInputFiles(samplePngFile())

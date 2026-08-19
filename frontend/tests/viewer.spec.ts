@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test'
-import { sampleHistologyImageFile, blockExternalRequests, completeInitialImpression } from './fixtures'
+import {
+  sampleHistologyImageFile,
+  blockExternalRequests,
+  completeInitialImpression,
+  completeRespondentSurvey,
+} from './fixtures'
 
 /**
  * Recorre los controles enriquecidos del visor de imágenes: nombre de
@@ -14,6 +19,7 @@ test('el visor de imagen expone nombre, zoom, ajuste, pantalla completa y persis
   const blockedRequests = await blockExternalRequests(page)
 
   await page.goto('/')
+  await completeRespondentSurvey(page)
   await page.locator('input[type="file"]').setInputFiles(sampleHistologyImageFile())
 
   // ── Nombre de archivo visible en la barra superior ────────────────────
@@ -97,6 +103,7 @@ test('el visor de imagen expone nombre, zoom, ajuste, pantalla completa y persis
 
 test('el visor informa un error cuando el contenido no se puede renderizar', async ({ page }) => {
   await page.goto('/')
+  await completeRespondentSurvey(page)
 
   // La imagen ahora viaja embebida en la respuesta de /api/image/upload (data
   // URI), no como una segunda solicitud GET separada — no hay red que

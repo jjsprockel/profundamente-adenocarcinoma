@@ -1,4 +1,4 @@
-import type { AnsweredQuestion, DiagnosisResult, ImageKind } from '@/types'
+import type { AnsweredQuestion, DiagnosisResult, ImageKind, RespondentSurvey } from '@/types'
 
 const BASE = '/api'
 
@@ -47,6 +47,7 @@ export async function exportPdf(
   imageFileName?: string,
   initialImpression?: string,
   answeredQuestions?: AnsweredQuestion[],
+  respondentSurvey?: RespondentSurvey,
 ): Promise<void> {
   const res = await fetch(`${BASE}/export/pdf`, {
     method: 'POST',
@@ -62,6 +63,14 @@ export async function exportPdf(
         selected_letter: a.selectedLetter,
         selected_text: a.selectedText,
       })),
+      respondent: respondentSurvey
+        ? {
+            identification: respondentSurvey.identification || null,
+            experience_level: respondentSurvey.experienceLevel,
+            has_pulmonary_pathology_experience: respondentSurvey.hasPulmonaryPathologyExperience,
+            years_as_pathologist: respondentSurvey.yearsAsPathologist,
+          }
+        : null,
     }),
   })
   if (!res.ok) throw new Error(`PDF export failed: ${res.statusText}`)

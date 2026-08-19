@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test'
-import { sampleHistologyImageFile, blockExternalRequests, completeInitialImpression } from './fixtures'
+import {
+  sampleHistologyImageFile,
+  blockExternalRequests,
+  completeInitialImpression,
+  completeRespondentSurvey,
+} from './fixtures'
 
 /**
  * Verifica que la aplicación funciona por completo sin acceso a internet.
@@ -18,6 +23,9 @@ test('flujo completo funciona sin acceso a internet', async ({ page }) => {
 
   await page.goto('/')
   await page.reload()
+
+  // ── 0. Cuestionario inicial del evaluador (antes de cargar imagen) ────
+  await completeRespondentSurvey(page)
 
   // ── 1. Cargar una imagen ──────────────────────────────────────────────
   const fileInput = page.locator('input[type="file"]')

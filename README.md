@@ -98,6 +98,7 @@ kill $(lsof -ti:8000) $(lsof -ti:5173)
 
 ### Funcionalidades implementadas
 
+- Cuestionario inicial del evaluador (identificación anonimizada, nivel de experiencia y experiencia en patología pulmonar) antes de poder cargar una imagen, capturado una sola vez por sesión e incluido en el encabezado de cada reporte PDF
 - Carga de imagen con soporte de arrastrar y soltar en múltiples formatos: **JPEG, PNG, SVG, TIFF/TIF plano y DICOM (.dcm)**, hasta 3 MB por archivo
 - Visor central con zoom y paneo basado en **OpenSeadragon**
 - Impresión diagnóstica inicial (selección única entre todos los patrones posibles) antes de iniciar el cuestionario, comparada luego contra el resultado sistemático
@@ -107,7 +108,7 @@ kill $(lsof -ti:8000) $(lsof -ti:5173)
 - Barra de progreso inferior por dominios (5 nodos: Arquitectura, Citología, Estroma, Características Especiales, Integración)
 - Motor de decisión basado en reglas explícitas y determinístico
 - Modal final con resultado diagnóstico completo, con la impresión inicial comparada contra el resultado
-- Exportación a PDF identificado con el nombre del archivo de imagen, con las respuestas de la sesión al final del reporte
+- Exportación a PDF identificado con el nombre del archivo de imagen y los datos del evaluador en el encabezado, con las respuestas de la sesión al final del reporte
 - Página "Acerca de" con información metodológica e institucional
 
 ### Restricciones del MVP
@@ -414,6 +415,8 @@ pulmopath-tutor/
 │           │   └── ImageViewer.tsx   # Visor OpenSeadragon (zoom, paneo, pantalla completa)
 │           │
 │           ├── questionnaire/
+│           │   ├── RespondentSurveyStep.tsx # Cuestionario del evaluador, antes de cargar imagen
+│           │   ├── InitialImpressionStep.tsx # Impresión diagnóstica inicial (gestalt)
 │           │   ├── QuestionPanel.tsx # Orquestador del cuestionario
 │           │   ├── QuestionCard.tsx  # Pregunta + lista de opciones
 │           │   ├── OptionButton.tsx  # Botón letra + texto

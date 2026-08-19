@@ -13,6 +13,7 @@ async def export_pdf(request: PdfRequest) -> Response:
         image_filename=request.image_filename,
         initial_impression=request.initial_impression,
         answers=request.answers,
+        respondent=request.respondent,
     )
 
     # Build a safe filename for the download

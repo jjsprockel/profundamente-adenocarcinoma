@@ -3,16 +3,24 @@ import { execFileSync } from 'child_process'
 import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import path from 'path'
-import { samplePngFile, completeInitialImpression } from './fixtures'
+import { samplePngFile, completeInitialImpression, completeRespondentSurvey } from './fixtures'
 
 /**
  * Verifica que el PDF exportado incluye, al final del reporte, las
  * respuestas dadas durante la sesión (pregunta + opción elegida),
- * agrupadas por dominio.
+ * agrupadas por dominio — y, en el encabezado, los datos del evaluador
+ * capturados en el cuestionario inicial (identificación, experiencia,
+ * experiencia en patología pulmonar y años como patólogo si es graduado).
  */
 
 test('el PDF exportado incluye las respuestas del cuestionario al final', async ({ page }) => {
   await page.goto('/')
+  await completeRespondentSurvey(page, {
+    identification: 'QA-pdf-01',
+    experienceLevel: 'graduado',
+    hasPulmonaryExperience: true,
+    yearsAsPathologist: 12,
+  })
   await page.locator('input[type="file"]').setInputFiles(samplePngFile())
   await page.waitForSelector('[data-testid="continue-initial-impression"]', { timeout: 15_000 })
   await completeInitialImpression(page)
@@ -35,6 +43,12 @@ test('el PDF exportado incluye las respuestas del cuestionario al final', async 
   await download.saveAs(pdfPath)
 
   const text = execFileSync('pdftotext', ['-layout', pdfPath, '-']).toString('utf-8')
+
+  // Datos del evaluador, capturados antes de cargar la imagen.
+  expect(text).toContain('QA-pdf-01')
+  expect(text).toContain('Graduado')
+  expect(text).toContain('Experiencia en patología pulmonar: Sí')
+  expect(text).toContain('Años de experiencia como patólogo: 12')
 
   // La sección de respuestas aparece, después de las advertencias, antes del
   // aviso legal de cierre.

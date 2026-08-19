@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { samplePngFile } from './fixtures'
+import { samplePngFile, completeRespondentSurvey } from './fixtures'
 import { INITIAL_IMPRESSION_OPTIONS } from '../src/data/initialImpression'
 
 /**
@@ -10,6 +10,7 @@ import { INITIAL_IMPRESSION_OPTIONS } from '../src/data/initialImpression'
 
 test('la impresión inicial se captura antes del cuestionario y aparece en el reporte final', async ({ page }) => {
   await page.goto('/')
+  await completeRespondentSurvey(page)
   await page.locator('input[type="file"]').setInputFiles(samplePngFile())
 
   // ── Aparece antes del cuestionario, con todas las opciones posibles ────

@@ -41,10 +41,27 @@ export interface AnsweredQuestion {
 }
 
 export type AppPhase =
-  | 'upload'              // Initial: waiting for image
+  | 'respondent-survey'   // Initial: identifying who's taking the session, before any image
+  | 'upload'              // Waiting for image
   | 'initial-impression'  // Image loaded, gestalt pattern impression before the structured questionnaire
   | 'questionnaire'       // Answering the structured questionnaire
   | 'result'              // Diagnosis computed
+
+// ─── Respondent survey ─────────────────────────────────────────────────────────
+
+export type ExperienceLevel = 'graduado' | 'residente_1' | 'residente_2' | 'residente_3'
+
+// Captured once, before the image upload screen — identifies who is taking
+// the session (anonymized) and their level of experience, so it can be
+// included in the PDF report. Kept separate from `answers`: it never reaches
+// the rules engine, only the report.
+export interface RespondentSurvey {
+  identification: string
+  experienceLevel: ExperienceLevel | null
+  hasPulmonaryPathologyExperience: boolean | null
+  // Only meaningful (and only asked) when experienceLevel === 'graduado'
+  yearsAsPathologist: number | null
+}
 
 // "dzi": diapositiva piramidal grande (SVS/NDPI/TIFF piramidal) servida por tiles Deep Zoom
 // "simple": imagen servida completa (JPEG/PNG/SVG/TIFF plano/DICOM convertido)

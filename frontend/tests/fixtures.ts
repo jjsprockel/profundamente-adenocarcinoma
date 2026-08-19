@@ -29,6 +29,38 @@ export async function completeInitialImpression(page: Page) {
   await page.getByTestId('continue-initial-impression').click()
 }
 
+interface RespondentSurveyFixtureOptions {
+  identification?: string
+  experienceLevel?: 'graduado' | 'residente_1' | 'residente_2' | 'residente_3'
+  hasPulmonaryExperience?: boolean
+  yearsAsPathologist?: number
+}
+
+/**
+ * Before the upload screen is even reachable, the app gates behind a
+ * one-off respondent survey (identification + experience level). Every
+ * e2e flow must clear it first, right after `page.goto('/')`.
+ */
+export async function completeRespondentSurvey(
+  page: Page,
+  {
+    identification = 'QA-e2e',
+    experienceLevel = 'residente_2',
+    hasPulmonaryExperience = true,
+    yearsAsPathologist,
+  }: RespondentSurveyFixtureOptions = {},
+) {
+  await page.getByTestId('survey-identification').fill(identification)
+  await page.getByTestId(`survey-experience-${experienceLevel}`).click()
+  await page.getByTestId(
+    hasPulmonaryExperience ? 'survey-pulmonary-experience-yes' : 'survey-pulmonary-experience-no',
+  ).click()
+  if (experienceLevel === 'graduado') {
+    await page.getByTestId('survey-years-as-pathologist').fill(String(yearsAsPathologist ?? 5))
+  }
+  await page.getByTestId('continue-respondent-survey').click()
+}
+
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1'])
 
 /**

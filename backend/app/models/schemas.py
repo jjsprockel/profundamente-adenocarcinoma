@@ -59,6 +59,21 @@ class AnsweredQuestion(BaseModel):
     selected_text: str
 
 
+ExperienceLevel = Literal["graduado", "residente_1", "residente_2", "residente_3"]
+
+
+class RespondentInfo(BaseModel):
+    """Identificación (anonimizada) y nivel de experiencia de quien realiza la
+    sesión, capturada una sola vez antes de cargar la imagen. No participa del
+    motor de reglas — solo se incluye en el encabezado del reporte."""
+
+    identification: Optional[str] = None
+    experience_level: Optional[ExperienceLevel] = None
+    has_pulmonary_pathology_experience: Optional[bool] = None
+    # Solo aplica (y solo se pregunta en el frontend) si experience_level == "graduado"
+    years_as_pathologist: Optional[int] = None
+
+
 class PdfRequest(BaseModel):
     result: DiagnosisResult
     image_filename: Optional[str] = None
@@ -68,3 +83,4 @@ class PdfRequest(BaseModel):
     initial_impression: Optional[str] = None
     # Respuestas dadas durante la sesión, listadas al final del reporte.
     answers: list[AnsweredQuestion] = []
+    respondent: Optional[RespondentInfo] = None
