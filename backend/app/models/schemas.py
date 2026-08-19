@@ -45,6 +45,20 @@ class DiagnosisResult(BaseModel):
     missing_findings_hint: Optional[str]
 
 
+class AnsweredQuestion(BaseModel):
+    """Una respuesta del cuestionario, enriquecida con el texto de la
+    pregunta y de la opción elegida (no solo IDs/letras), tal como la arma el
+    frontend a partir de SECTIONS + AnswerMap. Solo se usa para listar las
+    respuestas de la sesión al final del reporte — el backend no mantiene una
+    copia propia del contenido del cuestionario."""
+
+    section_label: str
+    question_id: str
+    question_text: str
+    selected_letter: str
+    selected_text: str
+
+
 class PdfRequest(BaseModel):
     result: DiagnosisResult
     image_filename: Optional[str] = None
@@ -52,3 +66,5 @@ class PdfRequest(BaseModel):
     # estructurado. No participa del motor de reglas — solo se incluye en el
     # reporte para comparar contra el resultado sistemático.
     initial_impression: Optional[str] = None
+    # Respuestas dadas durante la sesión, listadas al final del reporte.
+    answers: list[AnsweredQuestion] = []

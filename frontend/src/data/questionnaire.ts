@@ -1,4 +1,4 @@
-import type { Section } from '@/types'
+import type { AnswerMap, AnsweredQuestion, Section } from '@/types'
 
 // Fuente: algoritmo_adenocarcinoma.docx
 // Todas las preguntas y opciones son transcripción fiel del documento original.
@@ -1254,4 +1254,26 @@ export function getSectionForQuestion(questionId: string): string {
     }
   }
   return ''
+}
+
+// Enriches an AnswerMap with the actual question/option text, in
+// questionnaire order — used to list the session's answers in the PDF report
+// without duplicating the questionnaire content on the backend.
+export function buildAnsweredQuestions(answers: AnswerMap): AnsweredQuestion[] {
+  const answered: AnsweredQuestion[] = []
+  for (const section of SECTIONS) {
+    for (const question of section.questions) {
+      const selectedLetter = answers[question.id]
+      if (!selectedLetter) continue
+      const option = question.options.find(o => o.letter === selectedLetter)
+      answered.push({
+        sectionLabel: section.label,
+        questionId: question.id,
+        questionText: question.text,
+        selectedLetter,
+        selectedText: option?.text ?? '',
+      })
+    }
+  }
+  return answered
 }

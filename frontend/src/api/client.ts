@@ -1,4 +1,4 @@
-import type { DiagnosisResult, ImageKind } from '@/types'
+import type { AnsweredQuestion, DiagnosisResult, ImageKind } from '@/types'
 
 const BASE = '/api'
 
@@ -46,6 +46,7 @@ export async function exportPdf(
   result: DiagnosisResult,
   imageFileName?: string,
   initialImpression?: string,
+  answeredQuestions?: AnsweredQuestion[],
 ): Promise<void> {
   const res = await fetch(`${BASE}/export/pdf`, {
     method: 'POST',
@@ -54,6 +55,13 @@ export async function exportPdf(
       result,
       image_filename: imageFileName ?? null,
       initial_impression: initialImpression ?? null,
+      answers: (answeredQuestions ?? []).map(a => ({
+        section_label: a.sectionLabel,
+        question_id: a.questionId,
+        question_text: a.questionText,
+        selected_letter: a.selectedLetter,
+        selected_text: a.selectedText,
+      })),
     }),
   })
   if (!res.ok) throw new Error(`PDF export failed: ${res.statusText}`)

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { AppPhase, AnswerMap, DiagnosisResult, ImageKind } from '@/types'
-import { ALL_QUESTION_IDS, SECTIONS } from '@/data/questionnaire'
+import { ALL_QUESTION_IDS, SECTIONS, buildAnsweredQuestions } from '@/data/questionnaire'
 import { getInitialImpressionLabel } from '@/data/initialImpression'
 import { getCompletedSectionIds } from '@/lib/sectionStatus'
 import Header from '@/components/layout/Header'
@@ -37,6 +37,7 @@ export default function App() {
     [answers],
   )
   const answeredQuestionsCount = Object.keys(answers).length
+  const answeredQuestions = useMemo(() => buildAnsweredQuestions(answers), [answers])
 
   // The progress bar must never show a domain active outside the
   // questionnaire phase (loading, or once a result exists).
@@ -136,6 +137,7 @@ export default function App() {
           result={result}
           imageFileName={imageFileName}
           initialImpression={initialImpressionLabel}
+          answeredQuestions={answeredQuestions}
           onClose={() => setPhase('questionnaire')}
           onNewCase={handleNewCase}
         />

@@ -22,13 +22,14 @@ from reportlab.platypus import (
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_CENTER
 
-from app.models.schemas import DiagnosisResult
+from app.models.schemas import AnsweredQuestion, DiagnosisResult
 
 
 def generate_pdf(
     result: DiagnosisResult,
     image_filename: Optional[str] = None,
     initial_impression: Optional[str] = None,
+    answers: Optional[list[AnsweredQuestion]] = None,
 ) -> bytes:
     buffer = io.BytesIO()
 
@@ -47,6 +48,7 @@ def generate_pdf(
         styles,
         image_filename=image_filename,
         initial_impression=initial_impression,
+        answers=answers,
     )
 
     doc.build(story)
@@ -147,6 +149,31 @@ def _build_styles() -> dict:
             fontName="Helvetica",
             alignment=TA_CENTER,
         ),
+        "answer_section": ParagraphStyle(
+            "answer_section",
+            fontSize=9,
+            leading=13,
+            textColor=HexColor("#855300"),
+            fontName="Helvetica-Bold",
+            spaceBefore=10,
+            spaceAfter=2,
+        ),
+        "answer_question": ParagraphStyle(
+            "answer_question",
+            fontSize=9.5,
+            leading=13,
+            textColor=HexColor("#222222"),
+            fontName="Helvetica-Bold",
+            spaceBefore=6,
+        ),
+        "answer_selected": ParagraphStyle(
+            "answer_selected",
+            fontSize=9,
+            leading=13,
+            textColor=HexColor("#444466"),
+            fontName="Helvetica",
+            leftIndent=10,
+        ),
     }
 
 
@@ -168,6 +195,7 @@ def _build_story(
     styles: dict,
     image_filename: Optional[str] = None,
     initial_impression: Optional[str] = None,
+    answers: Optional[list[AnsweredQuestion]] = None,
 ) -> list:
     story = []
 
@@ -258,6 +286,27 @@ def _build_story(
     story.append(Spacer(1, 8))
     for w in result.warnings:
         story.append(Paragraph(f"⚠ {w}", styles["warning"]))
+
+    # ── Respuestas del cuestionario (al final del reporte) ────────────────────
+    if answers:
+        story.append(Spacer(1, 14))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=HexColor("#cccccc")))
+        story.append(Spacer(1, 8))
+        story.append(Paragraph("Respuestas del cuestionario", styles["section_header"]))
+
+        current_section = None
+        for item in answers:
+            if item.section_label != current_section:
+                current_section = item.section_label
+                story.append(Paragraph(current_section.upper(), styles["answer_section"]))
+            story.append(Paragraph(
+                f"<b>{item.question_id}.</b> {item.question_text}",
+                styles["answer_question"],
+            ))
+            story.append(Paragraph(
+                f"→ <b>{item.selected_letter})</b> {item.selected_text}",
+                styles["answer_selected"],
+            ))
 
     # ── Footer ────────────────────────────────────────────────────────────────
     story.append(Spacer(1, 20))

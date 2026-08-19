@@ -28,6 +28,18 @@ export interface Section {
 
 export type AnswerMap = Record<string, string>  // { A1: "B", C3: "A", ... }
 
+// A single answered question, enriched with the actual question/option text
+// (not just IDs/letters) — built from SECTIONS + AnswerMap so the PDF report
+// can list the session's answers without duplicating the questionnaire
+// content on the backend.
+export interface AnsweredQuestion {
+  sectionLabel: string
+  questionId: string
+  questionText: string
+  selectedLetter: string
+  selectedText: string
+}
+
 export type AppPhase =
   | 'upload'              // Initial: waiting for image
   | 'initial-impression'  // Image loaded, gestalt pattern impression before the structured questionnaire

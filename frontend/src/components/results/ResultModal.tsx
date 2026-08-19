@@ -1,4 +1,4 @@
-import type { DiagnosisResult, ConfidenceLevel } from '@/types'
+import type { AnsweredQuestion, DiagnosisResult, ConfidenceLevel } from '@/types'
 import { exportPdf } from '@/api/client'
 import { impressionMatchesResult } from '@/data/initialImpression'
 import { useState } from 'react'
@@ -8,6 +8,7 @@ interface ResultModalProps {
   result: DiagnosisResult
   imageFileName: string | null
   initialImpression: string | null
+  answeredQuestions: AnsweredQuestion[]
   onClose: () => void
   onNewCase: () => void
 }
@@ -23,6 +24,7 @@ export default function ResultModal({
   result,
   imageFileName,
   initialImpression,
+  answeredQuestions,
   onClose,
   onNewCase,
 }: ResultModalProps) {
@@ -31,7 +33,7 @@ export default function ResultModal({
   async function handleExport() {
     setExporting(true)
     try {
-      await exportPdf(result, imageFileName ?? undefined, initialImpression ?? undefined)
+      await exportPdf(result, imageFileName ?? undefined, initialImpression ?? undefined, answeredQuestions)
     } catch {
       // Silent: error is non-blocking for the UI
     } finally {
