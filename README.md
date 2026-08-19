@@ -39,21 +39,8 @@ El proyecto se enmarca en iniciativas orientadas a innovación en educación mé
 | Node.js | 20.x |
 | npm | 9.x |
 | Python | 3.10 |
-| OpenSlide (librería de sistema) | 4.x |
 
-No se requiere base de datos ni conexión a internet para operar.
-
-El soporte de diapositivas piramidales grandes (SVS, NDPI, TIFF piramidal) depende de la librería de sistema **OpenSlide**, que debe instalarse antes de `pip install -r requirements.txt`:
-
-```bash
-# macOS
-brew install openslide
-
-# Debian / Ubuntu
-sudo apt-get install openslide-tools libopenslide0
-```
-
-Si OpenSlide no está disponible, la aplicación sigue funcionando: los archivos que no puedan abrirse como diapositiva piramidal se sirven como imagen simple (con conversión automática a PNG cuando el formato lo requiere).
+No se requiere base de datos ni conexión a internet para operar. No hay dependencias de librerías de sistema — solo paquetes Python instalables con `pip` — por lo que el backend corre igual en local, en Render, o como función serverless en Vercel.
 
 ---
 
@@ -111,40 +98,42 @@ kill $(lsof -ti:8000) $(lsof -ti:5173)
 
 ### Funcionalidades implementadas
 
-- Carga de imagen con soporte de arrastrar y soltar en múltiples formatos: **JPEG, PNG, SVG, TIFF/TIF (incluidas diapositivas piramidales grandes tipo whole-slide image) y DICOM (.dcm)**
-- Visor central con zoom y paneo basado en **OpenSeadragon**, con navegación Deep Zoom por tiles para diapositivas piramidales grandes y visor de imagen simple para el resto de formatos
+- Carga de imagen con soporte de arrastrar y soltar en múltiples formatos: **JPEG, PNG, SVG, TIFF/TIF plano y DICOM (.dcm)**, hasta 3 MB por archivo
+- Visor central con zoom y paneo basado en **OpenSeadragon**
+- Impresión diagnóstica inicial (selección única entre todos los patrones posibles) antes de iniciar el cuestionario, comparada luego contra el resultado sistemático
 - Cuestionario estructurado en 4 secciones (18 preguntas totales, transcripción fiel del instrumento diagnóstico)
+- Ayuda contextual por opción (popup con título, explicación y hallazgos observables) en las opciones más representativas del instrumento
 - Navegación controlada: respuesta obligatoria para avanzar, retroceso libre con edición de respuestas previas
 - Barra de progreso inferior por dominios (5 nodos: Arquitectura, Citología, Estroma, Características Especiales, Integración)
 - Motor de decisión basado en reglas explícitas y determinístico
-- Modal final con resultado diagnóstico completo
-- Exportación a PDF identificado con el nombre del archivo de imagen
+- Modal final con resultado diagnóstico completo, con la impresión inicial comparada contra el resultado
+- Exportación a PDF identificado con el nombre del archivo de imagen, con las respuestas de la sesión al final del reporte
 - Página "Acerca de" con información metodológica e institucional
 
 ### Restricciones del MVP
 
-- Opera solo en local, sin autenticación ni base de datos
-- La imagen se almacena en un archivo temporal del servidor; se descarta al reiniciar
+- Sin autenticación ni base de datos
+- La imagen no se almacena en el servidor ni siquiera temporalmente: se procesa y se devuelve en la misma respuesta de subida (ver [Formatos de imagen soportados](#formatos-de-imagen-soportados))
 - No conserva casos entre sesiones
 - No usa inteligencia artificial ni inferencia probabilística; toda la lógica es por reglas explícitas
+- No soporta diapositivas completas (whole-slide images) piramidales grandes tipo SVS/NDPI — ver más abajo
 
 ---
 
 ## Formatos de imagen soportados
 
-El backend detecta el tipo de archivo y decide cómo servirlo (`app/services/slide_service.py`):
+El backend detecta el tipo de archivo y decide cómo procesarlo (`app/services/slide_service.py`), y devuelve la imagen ya lista **en la misma respuesta de subida** (como un data URI en base64) — no hay un segundo endpoint que la sirva ni estado que mantener entre peticiones, para que el backend pueda correr como función serverless (ver [Despliegue](#despliegue)):
 
 | Formato | Manejo |
 |---|---|
 | SVG | Se sirve tal cual (vectorial, no requiere conversión) |
-| TIFF/TIF piramidal (SVS, NDPI, MRXS, TIFF con tiles multi-resolución, ...) | Se abre con **OpenSlide** y se sirve como tiles **Deep Zoom (DZI)**; permite navegar diapositivas de varios GB con rendimiento fluido |
-| TIFF/TIF plano (no piramidal), BMP, WebP | Se convierte a PNG con Pillow y se sirve como imagen simple |
+| TIFF/TIF plano (no piramidal), BMP, WebP | Se convierte a PNG con Pillow |
 | JPEG, PNG | Se sirven directamente |
 | DICOM (.dcm) | Se extrae el pixel array con `pydicom` (primer frame si es multi-frame), se normaliza el contraste y se convierte a PNG |
 
-El frontend recibe del backend un campo `kind` (`"dzi"` o `"simple"`) y configura el visor **OpenSeadragon** en consecuencia: `tileSources` apuntando al descriptor `.dzi` para diapositivas piramidales, o a la imagen simple para el resto.
+**Tamaño máximo por archivo: 3 MB** (deja margen bajo el límite de ~4.5 MB de una función de Vercel, incluso después de la inflación ~33% del base64 en la respuesta).
 
-> **Nota:** el soporte de DICOM cubre imágenes de captura secundaria de un solo frame o representativo (caso típico de exportaciones de patología digital). No implementa el estándar completo de WSI DICOM multi-frame piramidal (que requeriría una librería especializada como `wsidicom`).
+> **No incluido:** diapositivas piramidales grandes (whole-slide images: SVS, NDPI, TIFF multi-resolución con tiles) — requieren **OpenSlide**, una librería nativa de sistema que no puede instalarse en un runtime serverless, y una sesión de servidor persistente para servir tiles bajo demanda; ninguna de las dos encaja con un despliegue stateless. El soporte de DICOM cubre imágenes de captura secundaria de un solo frame o representativo, no el estándar completo de WSI DICOM multi-frame piramidal.
 
 ---
 
@@ -241,12 +230,11 @@ El backend expone los siguientes endpoints:
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/api/health` | Estado del servicio |
-| `POST` | `/api/image/upload` | Sube imagen (JPEG/PNG/SVG/TIFF/DICOM); devuelve `session_id`, `kind` (`dzi`/`simple`), `image_url` y, si aplica, `dzi_url` |
-| `GET` | `/api/image/{session_id}` | Sirve la imagen (o una miniatura, si es una diapositiva `dzi`) |
-| `GET` | `/api/image/{session_id}.dzi` | Descriptor Deep Zoom (XML) de una diapositiva piramidal |
-| `GET` | `/api/image/{session_id}_files/{level}/{col}_{row}.jpeg` | Tile individual de una diapositiva piramidal |
+| `POST` | `/api/image/upload` | Sube imagen (JPEG/PNG/SVG/TIFF/DICOM, máx. 3 MB); devuelve `session_id`, `kind` (siempre `"simple"`), `image_url` (data URI con la imagen ya procesada) y `dzi_url` (siempre `null`) |
 | `POST` | `/api/diagnosis/evaluate` | Recibe `session_id` + `answers`; devuelve resultado diagnóstico |
-| `POST` | `/api/export/pdf` | Recibe resultado + nombre de archivo; devuelve PDF |
+| `POST` | `/api/export/pdf` | Recibe resultado + nombre de archivo + impresión inicial + respuestas de la sesión; devuelve PDF |
+
+No hay endpoint para volver a solicitar la imagen: al no mantenerse ningún estado entre peticiones, `image_url` ya trae la imagen lista para mostrar. Los campos `kind`/`dzi_url` se conservan en la respuesta por compatibilidad con el frontend, pero siempre valen `"simple"`/`null` (ver [Formatos de imagen soportados](#formatos-de-imagen-soportados)).
 
 La documentación interactiva completa está disponible en `http://localhost:8000/docs`.
 
@@ -273,17 +261,21 @@ La documentación interactiva completa está disponible en `http://localhost:800
 
 ## Arquitectura técnica
 
+El backend es **sin estado**: cada petición se resuelve por completo en sí misma, sin sesiones ni archivos que persistan entre peticiones. Esto es lo que permite desplegarlo igual como proceso persistente (Render, `start.sh` local) o como función serverless (Vercel) sin cambiar una línea de código de la aplicación — ver [Despliegue](#despliegue).
+
 ```
-Navegador (localhost:5173)
+Navegador
     │
-    │  HTTP / REST
+    │  HTTP / REST (rutas relativas /api/...)
     ▼
-Vite dev server  ──proxy /api──►  FastAPI (localhost:8000)
-                                       │
-                                       ├── /api/image      → slide_service.py (OpenSlide Deep Zoom / conversión Pillow / pydicom)
-                                       ├── /api/diagnosis  → rules_engine.py (lógica pura)
-                                       └── /api/export     → pdf_service.py (reportlab)
+FastAPI (app/main.py)
+    │
+    ├── /api/image      → slide_service.py (conversión Pillow / pydicom, sin estado)
+    ├── /api/diagnosis  → rules_engine.py (lógica pura)
+    └── /api/export     → pdf_service.py (reportlab)
 ```
+
+En desarrollo local, el servidor de Vite (`localhost:5173`) hace de proxy de `/api` hacia FastAPI (`localhost:8000`). En producción, frontend y backend se sirven desde el mismo origen (ver [Despliegue](#despliegue)), así que no hace falta CORS ni proxy.
 
 ### Stack tecnológico
 
@@ -295,18 +287,18 @@ Vite dev server  ──proxy /api──►  FastAPI (localhost:8000)
 | TypeScript | 5.8 | Tipado estricto |
 | Vite | 6 | Bundler y dev server |
 | Tailwind CSS | 3.4 | Estilos (sistema de diseño "Digital Curator") |
-| OpenSeadragon | 4.x | Visor de imagen: Deep Zoom para diapositivas piramidales, imagen simple para el resto |
+| OpenSeadragon | 4.x | Visor de imagen (zoom, paneo, pantalla completa) |
+| lucide-react | — | Iconos SVG empaquetados localmente |
 
 **Backend**
 
 | Tecnología | Versión | Uso |
 |---|---|---|
 | FastAPI | 0.115 | Framework REST |
-| uvicorn | 0.34 | Servidor ASGI |
+| uvicorn | 0.34 | Servidor ASGI (local / Render; no se usa en Vercel) |
 | python-multipart | 0.0.20 | Carga de archivos |
 | reportlab | 4.4 | Generación de PDF |
 | Pillow | 11.2 | Validación y conversión de imágenes |
-| openslide-python | 1.4 | Lectura y tiles Deep Zoom de diapositivas piramidales (requiere OpenSlide instalado a nivel de sistema) |
 | pydicom | 3.0 | Lectura de archivos DICOM (.dcm) |
 | numpy | 2.2 | Normalización de contraste para la conversión DICOM → PNG |
 
@@ -336,7 +328,7 @@ npm run build
 
 `npm run check:offline` (que también corre automáticamente como parte de `npm run build`) escanea `src/`, `index.html`, `vite.config.ts` y `public/` en busca de referencias `http(s)://` a hosts distintos de `localhost`/`127.0.0.1`, y falla el build si encuentra alguna. El script vive en `scripts/check-offline-assets.mjs` y solo permite excepciones explícitas y documentadas (namespaces XML/SVG, que no son solicitudes de red).
 
-> La instalación (`npm install`, `pip install`, `brew install openslide`) sí requiere conexión a internet la primera vez. Lo que no requiere internet es la **ejecución** posterior de la aplicación ya instalada.
+> La instalación (`npm install`, `pip install`) sí requiere conexión a internet la primera vez. Lo que no requiere internet es la **ejecución** posterior de la aplicación ya instalada.
 
 ### Prueba de funcionamiento sin conexión
 
@@ -369,7 +361,13 @@ Esto construye el frontend, levanta el backend y sirve el build de producción (
 ```
 pulmopath-tutor/
 │
-├── start.sh                          # Script de arranque único
+├── vercel.json                       # Build + rewrite /api/* → función serverless (ver Despliegue)
+├── api/
+│   ├── index.py                      # Entry point de Vercel: expone app/main.py como función única
+│   └── requirements.txt              # Espejo de backend/requirements.txt (Vercel lo busca aquí)
+│
+├── start.sh                          # Script de arranque único (local)
+├── render.yaml                       # Config de despliegue en Render (proceso persistente)
 ├── scripts/
 │   └── check-offline-assets.mjs      # Falla el build si hay referencias remotas en el frontend
 │
@@ -412,7 +410,7 @@ pulmopath-tutor/
 │           │
 │           ├── viewer/
 │           │   ├── ImageDropZone.tsx # Drag & drop + botón explorar (JPEG/PNG/SVG/TIFF/DICOM)
-│           │   └── ImageViewer.tsx   # OpenSeadragon: Deep Zoom (dzi) o imagen simple
+│           │   └── ImageViewer.tsx   # Visor OpenSeadragon (zoom, paneo, pantalla completa)
 │           │
 │           ├── questionnaire/
 │           │   ├── QuestionPanel.tsx # Orquestador del cuestionario
@@ -429,7 +427,7 @@ pulmopath-tutor/
         ├── main.py                   # App FastAPI + CORS
         │
         ├── api/
-        │   ├── image.py              # POST /image/upload · GET /image/{id} · .dzi · tiles
+        │   ├── image.py              # POST /image/upload (sin estado, devuelve data URI)
         │   ├── diagnosis.py          # POST /diagnosis/evaluate
         │   └── export.py             # POST /export/pdf
         │
@@ -440,9 +438,33 @@ pulmopath-tutor/
         │   └── schemas.py            # Pydantic: DiagnosisRequest, DiagnosisResult, PdfRequest
         │
         └── services/
-            ├── slide_service.py      # Detección de formato, OpenSlide Deep Zoom, conversión DICOM/TIFF
+            ├── slide_service.py      # Detección de formato y conversión (Pillow / pydicom)
             └── pdf_service.py        # Generación PDF con reportlab
 ```
+
+---
+
+## Despliegue
+
+El backend no guarda estado entre peticiones (ver [Arquitectura técnica](#arquitectura-técnica)), así que el mismo código soporta dos formas de desplegarlo. Elige una:
+
+### Opción A — Vercel (todo en un solo proyecto)
+
+Un único proyecto de Vercel sirve el frontend como sitio estático desde su CDN y el backend como una función serverless de Python, ambos bajo el mismo dominio (sin CORS, sin configuración cruzada):
+
+1. Importar el repositorio en [vercel.com](https://vercel.com/new) (o `vercel --prod` con la CLI ya logueada). Vercel detecta `vercel.json` automáticamente.
+2. `vercel.json` en la raíz define:
+   - `buildCommand`: compila el frontend (`cd frontend && npm install && npm run build`)
+   - `outputDirectory`: `frontend/dist`, servido directamente por el CDN de Vercel
+   - `rewrites`: todo lo que llegue a `/api/*` se enruta a la función `api/index.py`
+3. `api/index.py` expone la misma app de FastAPI (`backend/app/main.py`) como función ASGI única — Vercel la detecta automáticamente. `api/requirements.txt` (espejo de `backend/requirements.txt`) es lo que Vercel instala para esa función.
+4. No hace falta configurar variables de entorno (`CORS_ORIGINS` no aplica: mismo origen).
+
+**Limitación asumida:** el backend en Vercel solo sirve imágenes simples (ver [Formatos de imagen soportados](#formatos-de-imagen-soportados)), no diapositivas piramidales grandes — eso requeriría OpenSlide (librería nativa) y una sesión de servidor persistente, incompatibles con un runtime serverless.
+
+### Opción B — Render (proceso persistente)
+
+`render.yaml` en la raíz configura un único servicio Python que compila el frontend y lo copia a `backend/frontend_dist/`, sirviéndolo desde el mismo proceso FastAPI (`uvicorn`) vía `main.py`. Ver el archivo para el detalle del build/start command. Esta opción no tiene el límite de 3 MB por archivo que impone el body-size de las funciones de Vercel, aunque el backend actual tampoco usa esa holgura (el límite de 3 MB en `image.py` es el mismo en ambos despliegues, para no mantener dos rutas de código distintas).
 
 ---
 

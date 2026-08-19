@@ -19,6 +19,9 @@ frontend/blob-report/
 # Build de producción (generado por Render en build time, no se versiona)
 backend/frontend_dist/
 
+# Vercel (config/caché local de `vercel link` / `vercel dev`)
+.vercel/
+
 # OS
 .DS_Store
 Thumbs.db

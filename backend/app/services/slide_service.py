@@ -1,57 +1,41 @@
-"""Format detection and image serving for the histopathology viewer.
+"""Format detection and conversion for the histopathology viewer.
 
-Three families of input are supported:
+Two families of input are supported, both resolved synchronously into a
+single in-memory image (bytes + media type + dimensions) — there is no
+server-side session or on-disk artifact left behind after the call returns:
 
-- Pyramidal whole-slide images (SVS, NDPI, generic tiled TIFF, ...) are opened
-  with OpenSlide and served as Deep Zoom tiles (``kind="dzi"``), so the
-  frontend can pan/zoom multi-gigabyte slides smoothly with OpenSeadragon.
 - SVG is vector and already lightweight to render in the browser, so it is
-  served as-is (``kind="simple"``).
-- Everything else (plain JPEG/PNG/BMP/WebP, non-pyramidal TIFF, DICOM) is
-  normalized to a single PNG/JPEG and served as a simple image
-  (``kind="simple"``); OpenSeadragon still provides pan/zoom for it, just
-  without the multi-resolution tile pyramid.
+  passed through as-is.
+- Everything else (JPEG/PNG/BMP/WebP/TIFF, DICOM) is normalized to a single
+  PNG (or passed through as JPEG/PNG unchanged) via Pillow/pydicom.
+
+This intentionally does not support pyramidal whole-slide formats (SVS,
+NDPI, tiled multi-resolution TIFF via OpenSlide): OpenSlide is a native
+system library that can't be installed in a serverless runtime, and reading
+a multi-gigabyte slide requires a persistent server process anyway — not a
+fit for a stateless deployment. Only flat, single-resolution images are
+handled here.
 """
 
 from __future__ import annotations
 
-import tempfile
-from dataclasses import dataclass
+import io
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
-import openslide
 import pydicom
-from openslide.deepzoom import DeepZoomGenerator
 from PIL import Image
 
-# Histopathology slides routinely exceed Pillow's default decompression-bomb
-# threshold; these are trusted local academic uploads, not arbitrary web input.
+# A handful of academic microscopy captures can still be large; this is a
+# trusted local/academic upload, not arbitrary web input.
 Image.MAX_IMAGE_PIXELS = None
-
-TILE_SIZE = 254
-TILE_OVERLAP = 1
-DZI_TILE_FORMAT = "jpeg"
 
 SVG_EXTENSIONS = {".svg"}
 DICOM_EXTENSIONS = {".dcm"}
 
 
-@dataclass
-class SlideSession:
-    kind: str  # "dzi" | "simple"
-    original_path: Path
-    display_path: Optional[Path] = None
-    display_media_type: Optional[str] = None
-    slide: Optional[openslide.OpenSlide] = None
-    dzg: Optional[DeepZoomGenerator] = None
-    width: int = 0
-    height: int = 0
-
-    def close(self) -> None:
-        if self.slide is not None:
-            self.slide.close()
+class UnsupportedImageError(Exception):
+    """Raised when the file can't be interpreted as an image at all."""
 
 
 def _looks_like_dicom(path: Path) -> bool:
@@ -63,7 +47,7 @@ def _looks_like_dicom(path: Path) -> bool:
         return False
 
 
-def _dicom_to_png(path: Path) -> Path:
+def _dicom_to_png_bytes(path: Path) -> bytes:
     ds = pydicom.dcmread(path)
     arr = ds.pixel_array
 
@@ -83,80 +67,58 @@ def _dicom_to_png(path: Path) -> Path:
     mode = "L" if arr.ndim == 2 else "RGB"
     img = Image.fromarray(arr, mode=mode).convert("RGB")
 
-    out_path = Path(tempfile.mkstemp(suffix=".png")[1])
-    img.save(out_path, format="PNG")
-    return out_path
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
-def open_slide_session(path: Path, extension: str) -> SlideSession:
+class ProcessedImage:
+    __slots__ = ("data", "media_type", "width", "height")
+
+    def __init__(self, data: bytes, media_type: str, width: int, height: int):
+        self.data = data
+        self.media_type = media_type
+        self.width = width
+        self.height = height
+
+
+def process_image(path: Path, extension: str) -> ProcessedImage:
+    """Reads the uploaded file and returns a ready-to-serve image.
+
+    Raises UnsupportedImageError if the file can't be interpreted.
+    """
     extension = extension.lower()
 
     if extension in DICOM_EXTENSIONS or _looks_like_dicom(path):
-        png_path = _dicom_to_png(path)
-        with Image.open(png_path) as im:
+        try:
+            data = _dicom_to_png_bytes(path)
+        except Exception as exc:
+            raise UnsupportedImageError(str(exc)) from exc
+        with Image.open(io.BytesIO(data)) as im:
             w, h = im.size
-        return SlideSession(
-            kind="simple",
-            original_path=path,
-            display_path=png_path,
-            display_media_type="image/png",
-            width=w,
-            height=h,
-        )
+        return ProcessedImage(data=data, media_type="image/png", width=w, height=h)
 
     if extension in SVG_EXTENSIONS:
-        return SlideSession(
-            kind="simple",
-            original_path=path,
-            display_path=path,
-            display_media_type="image/svg+xml",
-        )
+        data = path.read_bytes()
+        return ProcessedImage(data=data, media_type="image/svg+xml", width=0, height=0)
 
-    # Pyramidal whole-slide formats (SVS, NDPI, MRXS, generic tiled TIFF, ...)
+    # Flat raster readable by Pillow (JPEG, PNG, BMP, WebP, single-page TIFF, ...)
     try:
-        slide = openslide.OpenSlide(str(path))
-        dzg = DeepZoomGenerator(slide, tile_size=TILE_SIZE, overlap=TILE_OVERLAP, limit_bounds=True)
-        w, h = slide.dimensions
-        return SlideSession(kind="dzi", original_path=path, slide=slide, dzg=dzg, width=w, height=h)
-    except openslide.OpenSlideError:
-        pass
+        with Image.open(path) as im:
+            im.seek(0)
+            w, h = im.size
+            if extension in (".jpg", ".jpeg"):
+                data = path.read_bytes()
+                media_type = "image/jpeg"
+            elif extension == ".png":
+                data = path.read_bytes()
+                media_type = "image/png"
+            else:
+                buffer = io.BytesIO()
+                im.convert("RGB").save(buffer, format="PNG")
+                data = buffer.getvalue()
+                media_type = "image/png"
+    except Exception as exc:
+        raise UnsupportedImageError(str(exc)) from exc
 
-    # Fallback: flat raster readable by Pillow (JPEG, PNG, BMP, WebP, single-page TIFF, ...)
-    with Image.open(path) as im:
-        im.seek(0)
-        w, h = im.size
-        if extension in (".jpg", ".jpeg"):
-            display_path, media_type = path, "image/jpeg"
-        elif extension == ".png":
-            display_path, media_type = path, "image/png"
-        else:
-            display_path = Path(tempfile.mkstemp(suffix=".png")[1])
-            im.convert("RGB").save(display_path, format="PNG")
-            media_type = "image/png"
-
-    return SlideSession(
-        kind="simple",
-        original_path=path,
-        display_path=display_path,
-        display_media_type=media_type,
-        width=w,
-        height=h,
-    )
-
-
-def get_dzi_xml(session: SlideSession) -> str:
-    assert session.dzg is not None
-    return session.dzg.get_dzi(DZI_TILE_FORMAT)
-
-
-def get_tile(session: SlideSession, level: int, col: int, row: int) -> Image.Image:
-    assert session.dzg is not None
-    try:
-        return session.dzg.get_tile(level, (col, row))
-    except ValueError as exc:
-        raise KeyError(str(exc)) from exc
-
-
-def get_thumbnail(session: SlideSession, max_size: tuple[int, int] = (1024, 1024)) -> Image.Image:
-    assert session.slide is not None
-    return session.slide.get_thumbnail(max_size)
+    return ProcessedImage(data=data, media_type=media_type, width=w, height=h)

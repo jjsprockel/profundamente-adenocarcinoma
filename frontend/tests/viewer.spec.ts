@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { samplePngFile, sampleHistologyImageFile, blockExternalRequests, completeInitialImpression } from './fixtures'
+import { sampleHistologyImageFile, blockExternalRequests, completeInitialImpression } from './fixtures'
 
 /**
  * Recorre los controles enriquecidos del visor de imágenes: nombre de
@@ -95,28 +95,30 @@ test('el visor de imagen expone nombre, zoom, ajuste, pantalla completa y persis
   expect(blockedRequests, `Solicitudes remotas bloqueadas: ${blockedRequests.join(', ')}`).toEqual([])
 })
 
-test('el visor informa un error de carga y permite reintentar', async ({ page }) => {
+test('el visor informa un error cuando el contenido no se puede renderizar', async ({ page }) => {
   await page.goto('/')
 
-  // Intercepta únicamente la descarga de la imagen (GET) y simula un fallo de
-  // carga; la subida (POST /api/image/upload) debe seguir funcionando para
-  // llegar al visor.
-  let shouldFail = true
-  await page.route('**/api/image/**', route => {
-    if (shouldFail && route.request().method() === 'GET') {
-      route.fulfill({ status: 500, body: 'error' })
-    } else {
-      route.continue()
-    }
-  })
-
-  await page.locator('input[type="file"]').setInputFiles(samplePngFile())
+  // La imagen ahora viaja embebida en la respuesta de /api/image/upload (data
+  // URI), no como una segunda solicitud GET separada — no hay red que
+  // interceptar para simular un fallo de carga después de una subida exitosa.
+  // El único caso realista de fallo de RENDERIZADO (subida exitosa, pero el
+  // navegador no puede mostrarlo) es un SVG cuyo contenido no es XML válido:
+  // el backend solo valida la extensión de un SVG, no su estructura interna.
+  const brokenSvg = {
+    name: 'broken.svg',
+    mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg><this is not valid xml'),
+  }
+  await page.locator('input[type="file"]').setInputFiles(brokenSvg)
 
   await expect(page.getByRole('alert')).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText('No fue posible mostrar la imagen.')).toBeVisible()
 
-  shouldFail = false
+  // "Intentar de nuevo" reabre la MISMA imagen ya embebida (no hay una
+  // segunda solicitud de red que pueda "arreglarse" en un reintento), así
+  // que debe reportar el mismo error de forma consistente, sin romper la
+  // interfaz ni dejarla en un estado a medias.
   await page.getByRole('button', { name: 'Intentar de nuevo' }).click()
-  await expect(page.getByRole('alert')).not.toBeVisible()
-  await expect(page.getByText('Imagen cargada')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('alert')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('No fue posible mostrar la imagen.')).toBeVisible()
 })
